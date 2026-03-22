@@ -1,0 +1,63 @@
+{
+  "id": "meet_20260323_9336f8",
+  "type": "kickoff",
+  "title": "立项会议: Blockchain Traceability System",
+  "host": "CEO",
+  "participants": [
+    "CEO",
+    "CFO",
+    "CTO",
+    "COO",
+    "CHRO"
+  ],
+  "agenda": "",
+  "start_time": "2026-03-23T01:48:53.089838",
+  "end_time": null,
+  "status": "completed",
+  "created_at": "2026-03-23T01:48:53.089841",
+  "summary": {
+    "conclusion": "经讨论，该项目可行性评估为中等（平均76%），存在较高风险。建议在风险可控的前提下推进，需重点关注高风险项。",
+    "feasibility": 0.76,
+    "participants": [
+      "CEO",
+      "CFO",
+      "CTO",
+      "COO",
+      "CHRO"
+    ]
+  },
+  "decisions": [
+    {
+      "type": "feasibility",
+      "value": 0.76
+    }
+  ],
+  "action_items": [],
+  "speeches": [
+    {
+      "role": "CEO",
+      "title": "战略官",
+      "content": "【战略官发言】\n\n📊 当前状态评估：\n   • business_name: 项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • proposed_budget: 500000\n   • priority: high\n   • strategic_alignment: 中\n   • market_timing: 有利\n\n⚠️ 关键问题：\n   • 跨部门协同复杂度上升\n   • 资源分配需权衡现有业务\n   • 战略优先级需与董事会对齐\n\n💡 改进建议：\n   • 建议以90天试点方式启动项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • 建立双周review机制，及时调整策略\n   • 明确各阶段退出标准\n\n🔔 风险预警：\n   🟡 中级风险: 市场竞争加剧\n      应对: 快速验证MVP，控制沉没成本\n   🟢 低级风险: 执行偏差\n      应对: 设立里程碑检查点\n\n📈 可行性评分: 80%"
+    },
+    {
+      "role": "CFO",
+      "title": "财务顾问",
+      "content": "【财务顾问发言】\n\n📊 当前状态评估：\n   • business_name: 项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • requested_budget: 500000\n   • proposed_timeline: T+180d\n   • roi_expectation: 待验证\n   • cash_flow_impact: 需关注\n\n⚠️ 关键问题：\n   • 前期投入回收周期不确定\n   • 现金流压力需持续监控\n   • 预算超支风险存在\n\n💡 改进建议：\n   • 建议分阶段拨付预算，首期拨付不超过200000元\n   • 建立成本管控KPI，按月审计支出\n   • 预留10%应急储备金\n\n🔔 风险预警：\n   🔴 高级风险: 预算超支\n      应对: 设置硬性预算上限，超支需重新审批\n   🟡 中级风险: ROI不达预期\n      应对: 首期验证后立即评估，决定是否追加投资\n   🟢 低级风险: 现金流断裂\n      应对: 保持3个月运营现金储备\n\n📈 可行性评分: 72%"
+    },
+    {
+      "role": "CTO",
+      "title": "技术专家",
+      "content": "【技术专家发言】\n\n📊 当前状态评估：\n   • business_name: 项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • tech_stack_requirement: 标准Web服务\n   • infrastructure_ready: True\n   • technical_complexity: 高\n   • team_capacity: 充足\n\n⚠️ 关键问题：\n   • 关键技术能力尚需补齐\n   • 系统架构扩展性待验证\n   • 技术债务需关注\n\n💡 改进建议：\n   • 先组建项目: Blockchain Traceability System - Develop a blockchain-based product traceability system技术小组，完成基础架构验证\n   • 采用敏捷开发，2周一个迭代\n   • 优先使用成熟开源方案，降低自研风险\n\n🔔 风险预警：\n   🔴 高级风险: 技术选型失误\n      应对: POC验证后再大规模投入\n   🟡 中级风险: 开发进度延期\n      应对: 设置缓冲期，关键路径预留余量\n   🟢 低级风险: 技术人才流失\n      应对: 建立知识文档，代码集体所有权\n\n📈 可行性评分: 76%"
+    },
+    {
+      "role": "COO",
+      "title": "运营官",
+      "content": "【运营官发言】\n\n📊 当前状态评估：\n   • business_name: 项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • target_deadline: T+180d\n   • operational_readiness: 高\n   • resource_availability: 中\n   • process_maturity: 成熟\n\n⚠️ 关键问题：\n   • 执行排期受资源调度影响\n   • 多任务并行可能导致注意力分散\n   • 跨部门协作流程待优化\n\n💡 改进建议：\n   • 按双周里程碑推进，目标截止T+180d\n   • 设立专职项目经理，统一协调资源\n   • 建立每日站会机制，快速暴露阻塞点\n\n🔔 风险预警：\n   🔴 高级风险: 关键里程碑延期\n      应对: 预留20%时间缓冲，建立预警机制\n   🟡 中级风险: 资源冲突\n      应对: 提前锁定资源，制定资源调配预案\n   🟢 低级风险: 执行质量下降\n      应对: 引入QA检查点，关键节点验收\n\n📈 可行性评分: 78%"
+    },
+    {
+      "role": "CHRO",
+      "title": "人力资源官",
+      "content": "【人力资源官发言】\n\n📊 当前状态评估：\n   • business_name: 项目: Blockchain Traceability System - Develop a blockchain-based product traceability system\n   • team_readiness: 中\n   • key_roles_availability: 部分到位\n   • training_needs: 需要\n   • culture_fit: 良好\n\n⚠️ 关键问题：\n   • 关键岗位招聘周期不确定\n   • 现有团队可能面临工作负荷增加\n   • 新人培训与融入需要时间\n\n💡 改进建议：\n   • 先确定项目: Blockchain Traceability System - Develop a blockchain-based product traceability system岗位编制，再分批招聘\n   • 核心岗位优先内部调配，减少外招风险\n   • 建立导师制度，加速新人成长\n\n🔔 风险预警：\n   🔴 高级风险: 核心人员招聘困难\n      应对: 提前启动招聘，建立人才储备池\n   🟡 中级风险: 团队过度疲劳\n      应对: 合理分配任务，避免一人多项目\n   🟢 低级风险: 人员流动\n      应对: 完善激励机制，定期沟通了解诉求\n\n📈 可行性评分: 74%"
+    }
+  ]
+}

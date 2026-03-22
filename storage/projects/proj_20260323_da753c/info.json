@@ -1,0 +1,28 @@
+{
+  "id": "proj_20260323_da753c",
+  "name": "区块链溯源系统",
+  "description": "开发一套基于区块链的产品溯源系统",
+  "department_id": "",
+  "budget": 500000,
+  "owner": "李四",
+  "tags": [
+    "区块链",
+    "溯源",
+    "企业服务"
+  ],
+  "status": "planning",
+  "created_at": "2026-03-23T01:47:37.687572",
+  "updated_at": "2026-03-23T01:47:37.700354",
+  "start_date": null,
+  "end_date": null,
+  "kickoff_meeting_id": "meet_20260323_59ddae",
+  "meetings": [
+    "meet_20260323_59ddae"
+  ],
+  "tasks": [],
+  "lessons": [],
+  "milestones": [],
+  "team_members": [],
+  "progress": 0,
+  "conclusion": null
+}

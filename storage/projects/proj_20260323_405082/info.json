@@ -1,0 +1,53 @@
+{
+  "id": "proj_20260323_405082",
+  "name": "Blockchain Traceability System",
+  "description": "Develop a blockchain-based product traceability system",
+  "department_id": "",
+  "budget": 500000,
+  "owner": "Li Si",
+  "tags": [
+    "Blockchain",
+    "Traceability",
+    "Enterprise"
+  ],
+  "status": "active",
+  "created_at": "2026-03-23T01:48:53.088388",
+  "updated_at": "2026-03-23T01:48:53.096162",
+  "start_date": null,
+  "end_date": null,
+  "kickoff_meeting_id": "meet_20260323_9336f8",
+  "meetings": [
+    "meet_20260323_9336f8"
+  ],
+  "tasks": [],
+  "lessons": [],
+  "milestones": [
+    {
+      "id": "ms_d69c86",
+      "name": "Phase 1: 规划与设计",
+      "description": "完成项目规划和系统设计",
+      "due_date": "2026-03-30",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "ms_593a60",
+      "name": "Phase 2: 开发与实现",
+      "description": "完成核心功能开发",
+      "due_date": "2026-04-22",
+      "status": "pending",
+      "tasks": []
+    },
+    {
+      "id": "ms_380d38",
+      "name": "Phase 3: 测试与上线",
+      "description": "完成测试并上线",
+      "due_date": "2026-05-07",
+      "status": "pending",
+      "tasks": []
+    }
+  ],
+  "team_members": [],
+  "progress": 0,
+  "conclusion": null
+}

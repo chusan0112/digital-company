@@ -1,0 +1,26 @@
+[
+  {
+    "id": "ms_d69c86",
+    "name": "Phase 1: 规划与设计",
+    "description": "完成项目规划和系统设计",
+    "due_date": "2026-03-30",
+    "status": "pending",
+    "tasks": []
+  },
+  {
+    "id": "ms_593a60",
+    "name": "Phase 2: 开发与实现",
+    "description": "完成核心功能开发",
+    "due_date": "2026-04-22",
+    "status": "pending",
+    "tasks": []
+  },
+  {
+    "id": "ms_380d38",
+    "name": "Phase 3: 测试与上线",
+    "description": "完成测试并上线",
+    "due_date": "2026-05-07",
+    "status": "pending",
+    "tasks": []
+  }
+]

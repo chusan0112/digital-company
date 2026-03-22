@@ -1,0 +1,26 @@
+{
+  "id": "proj_20260323_0f4c8f",
+  "name": "Test Project",
+  "description": "A test project",
+  "department_id": "",
+  "budget": 100000,
+  "owner": "",
+  "tags": [],
+  "status": "planning",
+  "created_at": "2026-03-23T01:49:44.085566",
+  "updated_at": "2026-03-23T01:49:44.091993",
+  "start_date": null,
+  "end_date": null,
+  "kickoff_meeting_id": null,
+  "meetings": [
+    "meet_20260323_cfb36b"
+  ],
+  "tasks": [
+    "task_fed56858"
+  ],
+  "lessons": [],
+  "milestones": [],
+  "team_members": [],
+  "progress": 0,
+  "conclusion": null
+}

@@ -1,0 +1,17 @@
+{
+  "id": "task_e68f7882",
+  "name": "完成系统设计",
+  "description": "完成系统架构和详细设计",
+  "assignee_id": "",
+  "priority": "medium",
+  "due_date": "2026-04-15",
+  "milestone_id": null,
+  "status": "pending",
+  "progress": 0,
+  "created_at": "2026-03-23T01:47:11.251526",
+  "updated_at": "2026-03-23T01:47:11.251529",
+  "started_at": null,
+  "completed_at": null,
+  "logs": [],
+  "result": null
+}

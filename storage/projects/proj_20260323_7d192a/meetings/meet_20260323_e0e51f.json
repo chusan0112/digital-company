@@ -1,0 +1,22 @@
+{
+  "id": "meet_20260323_e0e51f",
+  "type": "kickoff",
+  "title": "立项会议：AI智能助手",
+  "host": "CEO",
+  "participants": [
+    "CEO",
+    "CFO",
+    "CTO",
+    "COO",
+    "CHRO"
+  ],
+  "agenda": "",
+  "start_time": "2026-03-23T01:47:11.248121",
+  "end_time": null,
+  "status": "scheduled",
+  "created_at": "2026-03-23T01:47:11.248124",
+  "summary": null,
+  "decisions": [],
+  "action_items": [],
+  "speeches": []
+}

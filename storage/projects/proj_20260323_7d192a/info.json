@@ -1,0 +1,31 @@
+{
+  "id": "proj_20260323_7d192a",
+  "name": "AI智能助手项目",
+  "description": "开发一款基于大模型的AI智能助手",
+  "department_id": "",
+  "budget": 100000,
+  "owner": "张三",
+  "tags": [
+    "AI",
+    "大模型",
+    "产品"
+  ],
+  "status": "kickoff",
+  "created_at": "2026-03-23T01:47:11.246656",
+  "updated_at": "2026-03-23T01:47:11.254441",
+  "start_date": null,
+  "end_date": null,
+  "kickoff_meeting_id": "meet_20260323_e0e51f",
+  "meetings": [
+    "meet_20260323_e0e51f"
+  ],
+  "tasks": [
+    "task_d8ba7bce",
+    "task_e68f7882"
+  ],
+  "lessons": [],
+  "milestones": [],
+  "team_members": [],
+  "progress": 0,
+  "conclusion": null
+}

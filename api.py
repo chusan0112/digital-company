@@ -1382,4 +1382,261 @@ def handle_request(path, method="GET", body=None, headers=None):
         
         return {"success": True, "extracted_tasks": extracted, "count": len(extracted)}
     
+    # ============== 项目生命周期管理系统API ==============
+    
+    # 导入项目生命周期服务
+    from domains.project_lifecycle_service import (
+        get_lifecycle_service,
+        ProjectStatus,
+        MeetingType
+    )
+    
+    lifecycle = get_lifecycle_service()
+    
+    # ---- 项目管理 ----
+    
+    # POST /api/lifecycle/project - 创建项目
+    if path == "/api/lifecycle/project" and method == "POST":
+        data = json.loads(body) if body else {}
+        name = data.get("name", "").strip()
+        if not name:
+            return {"success": False, "error": "name_required"}
+        
+        project = lifecycle.create_project(
+            name=name,
+            description=data.get("description", ""),
+            department_id=data.get("department_id", ""),
+            budget=data.get("budget", 0),
+            owner=data.get("owner", ""),
+            tags=data.get("tags", [])
+        )
+        return {"success": True, "project": project}
+    
+    # GET /api/lifecycle/project/{id} - 获取项目信息
+    if path.startswith("/api/lifecycle/project/") and method == "GET":
+        project_id = path.replace("/api/lifecycle/project/", "")
+        project = lifecycle.get_project(project_id)
+        if not project:
+            return {"success": False, "error": "project_not_found"}
+        return {"success": True, "project": project}
+    
+    # GET /api/lifecycle/projects - 列出所有项目
+    if path == "/api/lifecycle/projects" and method == "GET":
+        status = None
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            status = data.get("status")
+        
+        projects = lifecycle.list_projects(status=status)
+        return {"success": True, "projects": projects, "count": len(projects)}
+    
+    # PUT /api/lifecycle/project/{id} - 更新项目
+    if path.startswith("/api/lifecycle/project/") and method == "PUT":
+        project_id = path.replace("/api/lifecycle/project/", "")
+        data = json.loads(body) if body else {}
+        
+        success = lifecycle.update_project(project_id, **data)
+        if not success:
+            return {"success": False, "error": "project_not_found"}
+        return {"success": True, "message": "Project updated"}
+    
+    # ---- 会议管理 ----
+    
+    # POST /api/lifecycle/meeting - 创建会议
+    if path == "/api/lifecycle/meeting" and method == "POST":
+        data = json.loads(body) if body else {}
+        project_id = data.get("project_id", "").strip()
+        if not project_id:
+            return {"success": False, "error": "project_id_required"}
+        
+        meeting_type = data.get("type", "regular")
+        title = data.get("title", "").strip()
+        if not title:
+            return {"success": False, "error": "title_required"}
+        
+        meeting = lifecycle.create_meeting(
+            project_id=project_id,
+            meeting_type=meeting_type,
+            title=title,
+            host=data.get("host", ""),
+            participants=data.get("participants", []),
+            agenda=data.get("agenda", ""),
+            start_time=data.get("start_time"),
+            end_time=data.get("end_time")
+        )
+        return {"success": True, "meeting": meeting}
+    
+    # GET /api/lifecycle/meeting/{project_id}/{meeting_id} - 获取会议信息
+    if path.startswith("/api/lifecycle/meeting/") and method == "GET":
+        parts = path.replace("/api/lifecycle/meeting/", "").split("/")
+        if len(parts) != 2:
+            return {"success": False, "error": "invalid_path"}
+        
+        project_id, meeting_id = parts
+        meeting = lifecycle.get_meeting(project_id, meeting_id)
+        if not meeting:
+            return {"success": False, "error": "meeting_not_found"}
+        return {"success": True, "meeting": meeting}
+    
+    # GET /api/lifecycle/meetings/{project_id} - 列出项目会议
+    if path.startswith("/api/lifecycle/meetings/") and method == "GET":
+        project_id = path.replace("/api/lifecycle/meetings/", "")
+        meeting_type = None
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            meeting_type = data.get("type")
+        
+        meetings = lifecycle.list_meetings(project_id, meeting_type=meeting_type)
+        return {"success": True, "meetings": meetings, "count": len(meetings)}
+    
+    # ---- 立项会议（AI高管辩论）----
+    
+    # POST /api/lifecycle/kickoff/{project_id} - 发起立项会议
+    if path.startswith("/api/lifecycle/kickoff/") and method == "POST":
+        project_id = path.replace("/api/lifecycle/kickoff/", "")
+        
+        context = {}
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            context = {
+                "budget": data.get("budget", 200000),
+                "deadline": data.get("deadline", "T+90d"),
+                "priority": data.get("priority", "medium")
+            }
+        
+        try:
+            result = lifecycle.run_kickoff_meeting(project_id, context)
+            return {"success": True, "result": result}
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+    
+    # ---- 任务管理 ----
+    
+    # POST /api/lifecycle/task - 创建任务
+    if path == "/api/lifecycle/task" and method == "POST":
+        data = json.loads(body) if body else {}
+        project_id = data.get("project_id", "").strip()
+        if not project_id:
+            return {"success": False, "error": "project_id_required"}
+        
+        name = data.get("name", "").strip()
+        if not name:
+            return {"success": False, "error": "name_required"}
+        
+        try:
+            task = lifecycle.create_task(
+                project_id=project_id,
+                name=name,
+                description=data.get("description", ""),
+                assignee_id=data.get("assignee_id", ""),
+                priority=data.get("priority", "medium"),
+                due_date=data.get("due_date"),
+                milestone_id=data.get("milestone_id")
+            )
+            return {"success": True, "task": task}
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+    
+    # GET /api/lifecycle/task/{project_id}/{task_id} - 获取任务信息
+    if path.startswith("/api/lifecycle/task/") and method == "GET":
+        parts = path.replace("/api/lifecycle/task/", "").split("/")
+        if len(parts) != 2:
+            return {"success": False, "error": "invalid_path"}
+        
+        project_id, task_id = parts
+        task = lifecycle.get_task(project_id, task_id)
+        if not task:
+            return {"success": False, "error": "task_not_found"}
+        return {"success": True, "task": task}
+    
+    # GET /api/lifecycle/tasks/{project_id} - 列出项目任务
+    if path.startswith("/api/lifecycle/tasks/") and method == "GET":
+        project_id = path.replace("/api/lifecycle/tasks/", "")
+        
+        status = None
+        assignee_id = None
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            status = data.get("status")
+            assignee_id = data.get("assignee_id")
+        
+        tasks = lifecycle.list_tasks(project_id, status=status, assignee_id=assignee_id)
+        return {"success": True, "tasks": tasks, "count": len(tasks)}
+    
+    # PUT /api/lifecycle/task/{project_id}/{task_id} - 更新任务
+    if path.startswith("/api/lifecycle/task/") and method == "PUT":
+        parts = path.replace("/api/lifecycle/task/", "").split("/")
+        if len(parts) != 2:
+            return {"success": False, "error": "invalid_path"}
+        
+        project_id, task_id = parts
+        data = json.loads(body) if body else {}
+        
+        success = lifecycle.update_task(project_id, task_id, **data)
+        if not success:
+            return {"success": False, "error": "task_not_found"}
+        return {"success": True, "message": "Task updated"}
+    
+    # ---- 里程碑 ----
+    
+    # GET /api/lifecycle/milestones/{project_id} - 获取项目里程碑
+    if path.startswith("/api/lifecycle/milestones/") and method == "GET":
+        project_id = path.replace("/api/lifecycle/milestones/", "")
+        milestones = lifecycle.get_milestones(project_id)
+        return {"success": True, "milestones": milestones}
+    
+    # ---- 复盘总结 ----
+    
+    # POST /api/lifecycle/retrospective - 创建复盘会议
+    if path == "/api/lifecycle/retrospective" and method == "POST":
+        data = json.loads(body) if body else {}
+        project_id = data.get("project_id", "").strip()
+        if not project_id:
+            return {"success": False, "error": "project_id_required"}
+        
+        retrospective = lifecycle.create_retrospective(
+            project_id=project_id,
+            title=data.get("title", "项目复盘"),
+            host=data.get("host", ""),
+            participants=data.get("participants", []),
+            what_went_well=data.get("what_went_well", []),
+            what_could_improve=data.get("what_could_improve", []),
+            lessons_learned=data.get("lessons_learned", [])
+        )
+        return {"success": True, "retrospective": retrospective}
+    
+    # POST /api/lifecycle/complete - 完成项目
+    if path == "/api/lifecycle/complete" and method == "POST":
+        data = json.loads(body) if body else {}
+        project_id = data.get("project_id", "").strip()
+        if not project_id:
+            return {"success": False, "error": "project_id_required"}
+        
+        conclusion = data.get("conclusion", "")
+        
+        try:
+            summary = lifecycle.complete_project(project_id, conclusion)
+            return {"success": True, "summary": summary}
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+    
+    # ---- 知识库 ----
+    
+    # GET /api/lifecycle/knowledge/lessons - 获取经验教训
+    if path == "/api/lifecycle/knowledge/lessons" and method == "GET":
+        lessons = lifecycle.get_knowledge_lessons()
+        return {"success": True, "lessons": lessons, "count": len(lessons)}
+    
+    # GET /api/lifecycle/knowledge/summaries - 获取项目总结
+    if path == "/api/lifecycle/knowledge/summaries" and method == "GET":
+        summaries = lifecycle.get_knowledge_summaries()
+        return {"success": True, "summaries": summaries, "count": len(summaries)}
+    
+    # ---- 统计 ----
+    
+    # GET /api/lifecycle/statistics - 获取项目统计
+    if path == "/api/lifecycle/statistics" and method == "GET":
+        stats = lifecycle.get_project_statistics()
+        return {"success": True, "statistics": stats}
+    
     return {"error": "Not found"}

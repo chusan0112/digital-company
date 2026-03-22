@@ -1,0 +1,17 @@
+{
+  "id": "task_fed56858",
+  "name": "Test Task",
+  "description": "",
+  "assignee_id": "",
+  "priority": "high",
+  "due_date": null,
+  "milestone_id": null,
+  "status": "in_progress",
+  "progress": 50,
+  "created_at": "2026-03-23T01:49:44.089163",
+  "updated_at": "2026-03-23T01:49:44.091442",
+  "started_at": "2026-03-23T01:49:44.091446",
+  "completed_at": null,
+  "logs": [],
+  "result": null
+}

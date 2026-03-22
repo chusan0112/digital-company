@@ -1,0 +1,17 @@
+{
+  "id": "task_d8ba7bce",
+  "name": "完成需求分析",
+  "description": "分析用户需求并编写需求文档",
+  "assignee_id": "",
+  "priority": "high",
+  "due_date": "2026-04-01",
+  "milestone_id": null,
+  "status": "in_progress",
+  "progress": 50,
+  "created_at": "2026-03-23T01:47:11.249774",
+  "updated_at": "2026-03-23T01:47:11.253746",
+  "started_at": "2026-03-23T01:47:11.253750",
+  "completed_at": null,
+  "logs": [],
+  "result": null
+}

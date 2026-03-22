@@ -1,0 +1,37 @@
+{
+  "id": "meet_20260323_a46324",
+  "type": "kickoff",
+  "title": "立项会议: 区块链溯源系统",
+  "host": "CEO",
+  "participants": [
+    "CEO",
+    "CFO",
+    "CTO",
+    "COO",
+    "CHRO"
+  ],
+  "agenda": "",
+  "start_time": "2026-03-23T01:47:23.091876",
+  "end_time": null,
+  "status": "completed",
+  "created_at": "2026-03-23T01:47:23.091879",
+  "summary": {
+    "conclusion": "",
+    "feasibility": 0,
+    "participants": [
+      "CEO",
+      "CFO",
+      "CTO",
+      "COO",
+      "CHRO"
+    ]
+  },
+  "decisions": [
+    {
+      "type": "feasibility",
+      "value": 0
+    }
+  ],
+  "action_items": [],
+  "speeches": []
+}
