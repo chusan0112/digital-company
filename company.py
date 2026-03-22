@@ -54,11 +54,13 @@ class Employee:
     role: str
     department_id: str
     skills: List[str] = field(default_factory=list)
-    status: str = "idle"
+    status: str = "idle"  # idle, working, discussing, resting
     hire_date: str = ""
     salary: float = 0
     performance: float = 100
     openclaw_agent_id: str = ""  # OpenClaw子Agent ID
+    current_task_id: str = ""  # 当前执行的任务ID
+    current_task_name: str = ""  # 当前任务名称
     
     def __post_init__(self):
         if not self.hire_date:
@@ -73,6 +75,32 @@ class Employee:
 
 
 # ============== 项目 ==============
+
+@dataclass
+class Meeting:
+    """会议"""
+    id: str
+    title: str
+    participants: List[str] = field(default_factory=list)  # 员工ID列表
+    current_speaker_id: str = ""
+    current_speech: str = ""
+    progress: int = 0  # 0-100
+    status: str = "waiting"  # waiting, in_progress, completed
+    agenda: List[str] = field(default_factory=list)  # 议程列表
+    started_at: str = ""
+    ended_at: str = ""
+    
+    def __post_init__(self):
+        if not self.started_at:
+            self.started_at = datetime.now().isoformat()
+    
+    def to_dict(self):
+        return asdict(self)
+    
+    @staticmethod
+    def from_dict(d):
+        return Meeting(**d)
+
 
 @dataclass
 class Project:
@@ -103,6 +131,27 @@ class Project:
 # ============== 任务 ==============
 
 @dataclass
+class TaskLog:
+    """任务执行日志"""
+    id: str
+    task_id: str
+    message: str
+    timestamp: str = ""
+    level: str = "info"  # info, warning, error, success
+    
+    def __post_init__(self):
+        if not self.timestamp:
+            self.timestamp = datetime.now().isoformat()
+    
+    def to_dict(self):
+        return asdict(self)
+    
+    @staticmethod
+    def from_dict(d):
+        return TaskLog(**d)
+
+
+@dataclass
 class Task:
     """任务"""
     id: str
@@ -114,6 +163,8 @@ class Task:
     priority: int = 1
     created_at: str = ""
     due_date: str = ""
+    progress: int = 0  # 0-100
+    logs: List[TaskLog] = field(default_factory=list)
     
     def __post_init__(self):
         if not self.created_at:
@@ -124,7 +175,20 @@ class Task:
     
     @staticmethod
     def from_dict(d):
+        logs = [TaskLog.from_dict(l) for l in d.get('logs', [])]
+        d['logs'] = logs
         return Task(**d)
+    
+    def add_log(self, message: str, level: str = "info"):
+        """添加执行日志"""
+        log = TaskLog(
+            id=str(uuid.uuid4())[:8],
+            task_id=self.id,
+            message=message,
+            level=level
+        )
+        self.logs.append(log)
+        return log
 
 
 # ============== 公司 ==============
@@ -141,6 +205,7 @@ class Company:
         self.employees: List[Employee] = []
         self.projects: List[Project] = []
         self.tasks: List[Task] = []
+        self.meetings: List[Meeting] = []  # 会议列表
         
         self.budget = 1000
         self.spent = 0
@@ -169,7 +234,8 @@ class Company:
             "departments": [d.to_dict() for d in self.departments],
             "employees": [e.to_dict() for e in self.employees],
             "projects": [p.to_dict() for p in self.projects],
-            "tasks": [t.to_dict() for t in self.tasks]
+            "tasks": [t.to_dict() for t in self.tasks],
+            "meetings": [m.to_dict() for m in self.meetings]
         }
         
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -192,6 +258,7 @@ class Company:
                 self.employees = [Employee.from_dict(e) for e in data.get("employees", [])]
                 self.projects = [Project.from_dict(p) for p in data.get("projects", [])]
                 self.tasks = [Task.from_dict(t) for t in data.get("tasks", [])]
+                self.meetings = [Meeting.from_dict(m) for m in data.get("meetings", [])]
             except:
                 self._init_default()
         else:
@@ -213,6 +280,75 @@ class Company:
         self.hire_employee("金小码", "首席技术官 CTO", "研发部", ["技术", "架构"], 0)
         self.hire_employee("金小产", "首席产品官 CPO", "研发部", ["产品", "设计"], 0)
         self.hire_employee("金小市", "首席市场官 CMO", "市场部", ["市场", "销售"], 0)
+        
+        # 创建演示数据
+        self._create_demo_data()
+        
+        self.save()
+    
+    def _create_demo_data(self):
+        """创建演示数据（用于实时可视化测试）"""
+        if not self.employees:
+            return
+        
+        # 创建一些演示任务
+        emp_ids = [e.id for e in self.employees]
+        
+        # 任务1：进行中
+        task1 = self.create_task(
+            name="开发可视化驾驶舱",
+            description="开发实时可视化界面",
+            assignee_id=emp_ids[3] if len(emp_ids) > 3 else emp_ids[0],
+            priority=5
+        )
+        self.assign_task(task1.id, emp_ids[3] if len(emp_ids) > 3 else emp_ids[0])
+        self.update_task_progress(task1.id, 65)
+        self.add_task_log(task1.id, "开始开发实时可视化界面", "info")
+        self.add_task_log(task1.id, "完成员工状态模块", "success")
+        self.add_task_log(task1.id, "正在开发任务进度模块", "info")
+        
+        # 更新员工当前任务
+        emp = self.get_employee(emp_ids[3] if len(emp_ids) > 3 else emp_ids[0])
+        if emp:
+            emp.current_task_id = task1.id
+            emp.current_task_name = task1.name
+            emp.status = "working"
+        
+        # 任务2：待处理
+        task2 = self.create_task(
+            name="优化系统性能",
+            description="提升系统响应速度",
+            assignee_id=emp_ids[4] if len(emp_ids) > 4 else emp_ids[0],
+            priority=3
+        )
+        
+        # 任务3：已完成
+        task3 = self.create_task(
+            name="完成UI设计",
+            description="完成驾驶舱界面设计",
+            assignee_id=emp_ids[4] if len(emp_ids) > 4 else emp_ids[0],
+            priority=4
+        )
+        self.assign_task(task3.id, emp_ids[4] if len(emp_ids) > 4 else emp_ids[0])
+        self.complete_task(task3.id)
+        self.add_task_log(task3.id, "完成界面设计初稿", "success")
+        self.add_task_log(task3.id, "通过评审", "success")
+        
+        # 创建一个演示会议
+        meeting = self.create_meeting(
+            title="周例会",
+            participants=emp_ids[:4],
+            agenda=["汇报上周工作", "讨论本周计划", "问题协调", "总结"]
+        )
+        self.start_meeting(meeting.id)
+        self.update_meeting_speaker(meeting.id, emp_ids[0], "大家好，我来汇报上周的工作进展...")
+        self.update_meeting_progress(meeting.id, 35)
+        
+        # 设置部分员工状态
+        if len(emp_ids) > 1:
+            self.update_employee_status(emp_ids[1], "discussing")
+        if len(emp_ids) > 2:
+            self.update_employee_status(emp_ids[2], "resting")
         
         self.save()
     
@@ -496,6 +632,91 @@ class Company:
             result = [t for t in result if t.assignee_id == assignee_id]
         return result
     
+    def update_task_progress(self, task_id: str, progress: int):
+        """更新任务进度"""
+        task = self.get_task(task_id)
+        if task:
+            task.progress = min(100, max(0, progress))
+            if task.progress == 100:
+                task.status = "completed"
+            self.save()
+    
+    def add_task_log(self, task_id: str, message: str, level: str = "info"):
+        """添加任务执行日志"""
+        task = self.get_task(task_id)
+        if task:
+            task.add_log(message, level)
+            self.save()
+            return task.logs[-1]
+        return None
+    
+    def get_task_logs(self, task_id: str) -> List[TaskLog]:
+        """获取任务的所有日志"""
+        task = self.get_task(task_id)
+        if task:
+            return task.logs
+        return []
+    
+    # ---------- 会议管理 ----------
+    
+    def create_meeting(self, title: str, participants: List[str], agenda: List[str] = None) -> Meeting:
+        """创建会议"""
+        meeting = Meeting(
+            id=str(uuid.uuid4())[:8],
+            title=title,
+            participants=participants,
+            agenda=agenda or [],
+            status="waiting"
+        )
+        self.meetings.append(meeting)
+        self.save()
+        return meeting
+    
+    def start_meeting(self, meeting_id: str) -> bool:
+        """开始会议"""
+        meeting = self.get_meeting(meeting_id)
+        if meeting:
+            meeting.status = "in_progress"
+            self.save()
+            return True
+        return False
+    
+    def get_meeting(self, meeting_id: str) -> Optional[Meeting]:
+        for m in self.meetings:
+            if m.id == meeting_id:
+                return m
+        return None
+    
+    def update_meeting_speaker(self, meeting_id: str, speaker_id: str, speech: str = ""):
+        """更新会议发言人"""
+        meeting = self.get_meeting(meeting_id)
+        if meeting:
+            meeting.current_speaker_id = speaker_id
+            meeting.current_speech = speech
+            self.save()
+    
+    def update_meeting_progress(self, meeting_id: str, progress: int):
+        """更新会议进度"""
+        meeting = self.get_meeting(meeting_id)
+        if meeting:
+            meeting.progress = min(100, max(0, progress))
+            if meeting.progress == 100:
+                meeting.status = "completed"
+                meeting.ended_at = datetime.now().isoformat()
+            self.save()
+    
+    def list_meetings(self, status: str = None) -> List[Meeting]:
+        if status:
+            return [m for m in self.meetings if m.status == status]
+        return self.meetings
+    
+    def get_current_meeting(self) -> Optional[Meeting]:
+        """获取当前进行中的会议"""
+        for m in self.meetings:
+            if m.status == "in_progress":
+                return m
+        return None
+    
     # ---------- 财务 ----------
     
     def spend(self, amount: float, description: str = "") -> bool:
@@ -511,6 +732,21 @@ class Company:
     # ---------- 统计 ----------
     
     def get_dashboard(self) -> dict:
+        # 获取当前会议
+        current_meeting = self.get_current_meeting()
+        meeting_data = None
+        if current_meeting:
+            speaker = self.get_employee(current_meeting.current_speaker_id)
+            meeting_data = {
+                "id": current_meeting.id,
+                "title": current_meeting.title,
+                "current_speaker": speaker.name if speaker else "未知",
+                "current_speech": current_meeting.current_speech,
+                "progress": current_meeting.progress,
+                "agenda": current_meeting.agenda,
+                "participants_count": len(current_meeting.participants)
+            }
+        
         return {
             "company_name": self.name,
             "founded_at": self.founded_at,
@@ -519,7 +755,8 @@ class Company:
             "employees_by_status": {
                 "working": len([e for e in self.employees if e.status == "working"]),
                 "idle": len([e for e in self.employees if e.status == "idle"]),
-                "meeting": len([e for e in self.employees if e.status == "meeting"])
+                "discussing": len([e for e in self.employees if e.status == "discussing"]),
+                "resting": len([e for e in self.employees if e.status == "resting"])
             },
             "projects": {
                 "total": len(self.projects),
@@ -537,7 +774,9 @@ class Company:
                 "budget": self.budget,
                 "spent": self.spent,
                 "balance": self.get_balance()
-            }
+            },
+            "meeting": meeting_data,
+            "meetings_count": len(self.meetings)
         }
 
 

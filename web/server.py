@@ -6,6 +6,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from company import get_company
@@ -93,6 +94,155 @@ def get_executive_governance_data():
     }
 
 
+# ============== 实时可视化 API =============
+
+def get_realtime_data():
+    """获取实时数据（员工状态、任务进度、会议）"""
+    company = get_company()
+    
+    # 员工实时状态
+    employees = []
+    for e in company.list_employees():
+        # 获取当前任务信息
+        current_task = None
+        if e.current_task_id:
+            task = company.get_task(e.current_task_id)
+            if task:
+                current_task = {
+                    "id": task.id,
+                    "name": task.name,
+                    "progress": task.progress,
+                    "logs": [{"message": l.message, "level": l.level, "timestamp": l.timestamp} for l in task.logs[-5:]]  # 最近5条日志
+                }
+        
+        employees.append({
+            "id": e.id,
+            "name": e.name,
+            "role": e.role,
+            "status": e.status,
+            "current_task": current_task,
+            "skills": e.skills
+        })
+    
+    # 任务进度
+    tasks = []
+    for t in company.list_tasks():
+        assignee = company.get_employee(t.assignee_id)
+        tasks.append({
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "status": t.status,
+            "priority": t.priority,
+            "progress": t.progress,
+            "assignee_name": assignee.name if assignee else "未分配",
+            "logs": [{"message": l.message, "level": l.level, "timestamp": l.timestamp} for l in t.logs]
+        })
+    
+    # 会议实时画面
+    current_meeting = company.get_current_meeting()
+    meeting = None
+    if current_meeting:
+        speaker = company.get_employee(current_meeting.current_speaker_id)
+        participants = []
+        for pid in current_meeting.participants:
+            p = company.get_employee(pid)
+            if p:
+                participants.append({"id": p.id, "name": p.name, "role": p.role})
+        
+        meeting = {
+            "id": current_meeting.id,
+            "title": current_meeting.title,
+            "status": current_meeting.status,
+            "progress": current_meeting.progress,
+            "current_speaker": {"id": speaker.id, "name": speaker.name} if speaker else None,
+            "current_speech": current_meeting.current_speech,
+            "agenda": current_meeting.agenda,
+            "participants": participants
+        }
+    
+    return {
+        "employees": employees,
+        "tasks": tasks,
+        "meeting": meeting,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def get_employee_realtime(emp_id: str):
+    """获取单个员工实时状态"""
+    company = get_company()
+    emp = company.get_employee(emp_id)
+    if not emp:
+        return None
+    
+    current_task = None
+    if emp.current_task_id:
+        task = company.get_task(emp.current_task_id)
+        if task:
+            current_task = {
+                "id": task.id,
+                "name": task.name,
+                "status": task.status,
+                "progress": task.progress,
+                "logs": [{"message": l.message, "level": l.level, "timestamp": l.timestamp} for l in task.logs]
+            }
+    
+    return {
+        "id": emp.id,
+        "name": emp.name,
+        "role": emp.role,
+        "status": emp.status,
+        "current_task": current_task,
+        "skills": emp.skills
+    }
+
+
+def get_tasks_realtime():
+    """获取任务实时进度"""
+    company = get_company()
+    tasks = []
+    for t in company.list_tasks():
+        assignee = company.get_employee(t.assignee_id)
+        tasks.append({
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "status": t.status,
+            "priority": t.priority,
+            "progress": t.progress,
+            "assignee_name": assignee.name if assignee else "未分配",
+            "logs": [{"message": l.message, "level": l.level, "timestamp": l.timestamp} for l in t.logs]
+        })
+    return tasks
+
+
+def get_meeting_realtime():
+    """获取会议实时画面"""
+    company = get_company()
+    current_meeting = company.get_current_meeting()
+    if not current_meeting:
+        return None
+    
+    speaker = company.get_employee(current_meeting.current_speaker_id)
+    participants = []
+    for pid in current_meeting.participants:
+        p = company.get_employee(pid)
+        if p:
+            participants.append({"id": p.id, "name": p.name, "role": p.role})
+    
+    return {
+        "id": current_meeting.id,
+        "title": current_meeting.title,
+        "status": current_meeting.status,
+        "progress": current_meeting.progress,
+        "current_speaker": {"id": speaker.id, "name": speaker.name} if speaker else None,
+        "current_speech": current_meeting.current_speech,
+        "agenda": current_meeting.agenda,
+        "participants": participants
+    }
+
+
 # ============== 交互功能 API =============
 
 def validate_task_data(data: dict) -> tuple:
@@ -170,6 +320,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(HTML.encode('utf-8'))
         
+        elif self.path == '/realtime.html' or self.path == '/realtime':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(REALTIME_HTML.encode('utf-8'))
+        
         elif self.path == '/api/dashboard':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -211,6 +367,38 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
             self.wfile.write(json.dumps({"success": True, "service": "digital-company-web", "status": "ok"}, ensure_ascii=False).encode('utf-8'))
+        
+        # ========== 实时可视化 API ==========
+        elif self.path == '/api/realtime':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(get_realtime_data(), ensure_ascii=False).encode('utf-8'))
+        
+        elif self.path == '/api/realtime/tasks':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(get_tasks_realtime(), ensure_ascii=False).encode('utf-8'))
+        
+        elif self.path == '/api/realtime/meeting':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            meeting = get_meeting_realtime()
+            self.wfile.write(json.dumps(meeting if meeting else {}, ensure_ascii=False).encode('utf-8'))
+        
+        elif self.path.startswith('/api/realtime/employee/'):
+            emp_id = self.path.split('/')[-1]
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            emp = get_employee_realtime(emp_id)
+            self.wfile.write(json.dumps(emp if emp else {}, ensure_ascii=False).encode('utf-8'))
         
         else:
             self.send_response(404)
@@ -668,6 +856,7 @@ HTML = """<!DOCTYPE html>
             <button class="action-btn green" onclick="openModal('taskModal')">➕ 新建任务</button>
             <button class="action-btn orange" onclick="openModal('employeeModal')">👤 员工状态</button>
             <button class="action-btn" onclick="openModal('expenseModal')">💸 添加支出</button>
+            <a href="/realtime.html" class="action-btn" style="text-decoration:none;display:inline-block;">🔴 实时驾驶舱</a>
         </div>
     </div>
     
@@ -1107,6 +1296,517 @@ HTML = """<!DOCTYPE html>
         
         loadData();
         setInterval(loadData, 5000);
+    </script>
+</body>
+</html>"""
+
+# ============== 实时可视化界面 HTML ==============
+REALTIME_HTML = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金库集团 - 实时驾驶舱</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 15px;
+        }
+        
+        .header { 
+            text-align: center; 
+            padding: 15px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .header h1 { font-size: 1.8rem; margin-bottom: 5px; }
+        .header .time { color: #888; font-size: 0.8rem; }
+        .header .live-badge {
+            background: linear-gradient(135deg, #e53935, #d32f2f);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* 三栏布局 */
+        .dashboard { 
+            display: grid; 
+            grid-template-columns: 1fr 1.2fr 1fr;
+            gap: 15px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* 卡片 */
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .card h3 { 
+            font-size: 1rem; 
+            color: #aaa; 
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 实时状态指示器 */
+        .status-dot-lg {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-idle { background: #757575; }
+        .status-working { background: #4caf50; box-shadow: 0 0 12px #4caf50; }
+        .status-discussing { background: #2196f3; box-shadow: 0 0 12px #2196f3; }
+        .status-resting { background: #ff9800; }
+        
+        /* 员工卡片 */
+        .employee-list { display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; }
+        .employee { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        .employee:hover { background: rgba(255,255,255,0.1); }
+        .emp-avatar {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .emp-info { flex: 1; min-width: 0; }
+        .emp-name { font-weight: bold; font-size: 0.95rem; }
+        .emp-role { color: #888; font-size: 0.75rem; }
+        .emp-task { 
+            color: #4fc3f7; 
+            font-size: 0.75rem; 
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* 任务进度 */
+        .task-list { display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; }
+        .task { 
+            padding: 15px; 
+            background: rgba(255,255,255,0.05); 
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        .task:hover { background: rgba(255,255,255,0.1); }
+        .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .task-name { font-weight: bold; font-size: 0.95rem; }
+        .task-status {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .task-pending { background: #ff9800; color: #000; }
+        .task-in_progress { background: #4caf50; color: #fff; }
+        .task-completed { background: #2196f3; color: #fff; }
+        
+        .progress-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill { 
+            height: 100%; 
+            background: linear-gradient(90deg, #667eea, #4caf50); 
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .task-logs {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 0.7rem;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        .log-item { padding: 2px 0; }
+        .log-info { color: #aaa; }
+        .log-success { color: #4caf50; }
+        .log-warning { color: #ff9800; }
+        .log-error { color: #f44336; }
+        
+        /* 会议实时画面 */
+        .meeting-card { 
+            grid-column: 3;
+            grid-row: 1 / 3;
+        }
+        .meeting-current {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .meeting-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; }
+        .speaker-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .speaker-avatar {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+        .speaker-info { flex: 1; }
+        .speaker-name { font-weight: bold; font-size: 1rem; }
+        .speaker-label { color: #aaa; font-size: 0.75rem; }
+        
+        .speech-bubble {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            min-height: 60px;
+        }
+        
+        .meeting-progress { margin-top: 15px; }
+        .progress-text { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.75rem; 
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        
+        .agenda-list { margin-top: 15px; }
+        .agenda-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .agenda-done { background: rgba(76,175,80,0.2); color: #81c784; }
+        .agenda-current { background: rgba(33,150,243,0.3); color: #64b5f6; }
+        .agenda-pending { background: rgba(255,255,255,0.05); color: #888; }
+        
+        .no-meeting {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .nav-tab {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: #aaa;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        
+        /* 统计栏 */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        .stat-value { font-size: 1.5rem; font-weight: bold; }
+        .stat-label { color: #888; font-size: 0.7rem; }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🏢 金库集团 - 实时驾驶舱</h1>
+            <div class="time">实时更新 | <span id="updateTime"></span></div>
+        </div>
+        <div class="live-badge">🔴 LIVE</div>
+    </div>
+    
+    <div class="dashboard">
+        <!-- 左侧：员工实时状态 -->
+        <div class="card">
+            <h3>👥 员工实时状态 <span class="status-dot-lg status-working"></span></h3>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value" id="statIdle">0</div>
+                    <div class="stat-label">空闲</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statWorking" style="color:#4caf50">0</div>
+                    <div class="stat-label">工作中</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statDiscussing" style="color:#2196f3">0</div>
+                    <div class="stat-label">讨论中</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statResting" style="color:#ff9800">0</div>
+                    <div class="stat-label">休息中</div>
+                </div>
+            </div>
+            <div class="employee-list" id="employeeList"></div>
+        </div>
+        
+        <!-- 中间：任务进度 -->
+        <div class="card">
+            <h3>📋 任务进度</h3>
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="filterTasks('all')">全部</button>
+                <button class="nav-tab" onclick="filterTasks('pending')">待处理</button>
+                <button class="nav-tab" onclick="filterTasks('in_progress')">进行中</button>
+                <button class="nav-tab" onclick="filterTasks('completed')">已完成</button>
+            </div>
+            <div class="task-list" id="taskList"></div>
+        </div>
+        
+        <!-- 右侧：会议实时画面 -->
+        <div class="card meeting-card">
+            <h3>🎙️ 会议实时画面</h3>
+            <div id="meetingContent">
+                <div class="no-meeting">暂无进行中的会议</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allTasks = [];
+        
+        // 状态映射
+        const statusMap = {
+            'idle': { text: '空闲', class: 'status-idle' },
+            'working': { text: '工作中', class: 'status-working' },
+            'discussing': { text: '讨论中', class: 'status-discussing' },
+            'resting': { text: '休息中', class: 'status-resting' }
+        };
+        
+        const taskStatusMap = {
+            'pending': { text: '待处理', class: 'task-pending' },
+            'in_progress': { text: '进行中', class: 'task-in_progress' },
+            'completed': { text: '已完成', class: 'task-completed' }
+        };
+        
+        async function loadRealtimeData() {
+            try {
+                const [realtime] = await Promise.all([
+                    fetch('/api/realtime').then(r => r.json())
+                ]);
+                
+                // 更新时间
+                document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+                
+                // 更新员工统计
+                const statusCounts = { idle: 0, working: 0, discussing: 0, resting: 0 };
+                realtime.employees.forEach(e => {
+                    if (statusCounts[e.status] !== undefined) {
+                        statusCounts[e.status]++;
+                    }
+                });
+                document.getElementById('statIdle').textContent = statusCounts.idle;
+                document.getElementById('statWorking').textContent = statusCounts.working;
+                document.getElementById('statDiscussing').textContent = statusCounts.discussing;
+                document.getElementById('statResting').textContent = statusCounts.resting;
+                
+                // 更新员工列表
+                const empHtml = realtime.employees.map(e => {
+                    const s = statusMap[e.status] || statusMap.idle;
+                    const taskInfo = e.current_task ? 
+                        `<div class="emp-task">📌 任务: ${e.current_task.name} (${e.current_task.progress}%)</div>` : 
+                        '';
+                    return `
+                        <div class="employee">
+                            <div class="emp-avatar">${e.name.charAt(0)}</div>
+                            <div class="emp-info">
+                                <div class="emp-name">${e.name}</div>
+                                <div class="emp-role">${e.role}</div>
+                                ${taskInfo}
+                            </div>
+                            <span class="status-dot-lg ${s.class}" title="${s.text}"></span>
+                        </div>
+                    `;
+                }).join('');
+                document.getElementById('employeeList').innerHTML = empHtml;
+                
+                // 更新任务列表
+                allTasks = realtime.tasks;
+                renderTasks(allTasks);
+                
+                // 更新会议
+                if (realtime.meeting) {
+                    updateMeetingUI(realtime.meeting);
+                } else {
+                    document.getElementById('meetingContent').innerHTML = 
+                        '<div class="no-meeting">暂无进行中的会议</div>';
+                }
+                
+            } catch(e) { 
+                console.error('Load realtime data error:', e); 
+            }
+        }
+        
+        function renderTasks(tasks) {
+            const taskHtml = tasks.map(t => {
+                const s = taskStatusMap[t.status] || taskStatusMap.pending;
+                const logsHtml = t.logs.slice(-3).map(l => 
+                    `<div class="log-item log-${l.level}">${l.message}</div>`
+                ).join('');
+                
+                return `
+                    <div class="task">
+                        <div class="task-header">
+                            <div class="task-name">${t.name}</div>
+                            <span class="task-status ${s.class}">${s.text}</span>
+                        </div>
+                        <div style="color:#888;font-size:0.75rem">👤 ${t.assignee_name}</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:${t.progress}%"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#aaa">
+                            <span>优先级: ${t.priority}</span>
+                            <span>进度: ${t.progress}%</span>
+                        </div>
+                        ${logsHtml ? `<div class="task-logs">${logsHtml}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('taskList').innerHTML = taskHtml || '<div class="no-meeting">暂无任务</div>';
+        }
+        
+        function filterTasks(status) {
+            // 更新tab状态
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 过滤任务
+            if (status === 'all') {
+                renderTasks(allTasks);
+            } else {
+                renderTasks(allTasks.filter(t => t.status === status));
+            }
+        }
+        
+        function updateMeetingUI(m) {
+            const speaker = m.current_speaker || { name: '等待发言' };
+            const agendaHtml = m.agenda.map((item, idx) => {
+                let cls = 'agenda-pending';
+                if (idx < Math.floor(m.progress / 100 * m.agenda.length)) {
+                    cls = 'agenda-done';
+                } else if (idx === Math.floor(m.progress / 100 * m.agenda.length)) {
+                    cls = 'agenda-current';
+                }
+                return `<div class="agenda-item ${cls}">✓ ${item}</div>`;
+            }).join('');
+            
+            document.getElementById('meetingContent').innerHTML = `
+                <div class="meeting-current">
+                    <div class="meeting-title">${m.title}</div>
+                    
+                    <div class="speaker-section">
+                        <div class="speaker-avatar">${speaker.name.charAt(0)}</div>
+                        <div class="speaker-info">
+                            <div class="speaker-name">${speaker.name}</div>
+                            <div class="speaker-label">正在发言</div>
+                        </div>
+                    </div>
+                    
+                    <div class="speech-bubble">${m.current_speech || '...'}</div>
+                    
+                    <div class="meeting-progress">
+                        <div class="progress-text">
+                            <span>讨论进度</span>
+                            <span>${m.progress}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:${m.progress}%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 style="color:#aaa;margin-bottom:10px;font-size:0.9rem">📋 会议议程</h4>
+                <div class="agenda-list">${agendaHtml}</div>
+                
+                <h4 style="color:#aaa;margin:15px 0 10px;font-size:0.9rem">👥 参会人员 (${m.participants.length})</h4>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    ${m.participants.map(p => 
+                        `<div style="padding:5px 12px;background:rgba(255,255,255,0.1);border-radius:15px;font-size:0.8rem">
+                            ${p.name}
+                        </div>`
+                    ).join('')}
+                </div>
+            `;
+        }
+        
+        // 初始加载
+        loadRealtimeData();
+        
+        // 每2秒更新一次（实时）
+        setInterval(loadRealtimeData, 2000);
     </script>
 </body>
 </html>"""
