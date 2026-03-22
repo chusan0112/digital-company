@@ -1129,4 +1129,56 @@ def handle_request(path, method="GET", body=None, headers=None):
         )
         return {"success": True, "simulation": result}
     
+    # ============== 会议讨论系统接口 ==============
+    
+    # 导入会议模块
+    from core.meeting import (
+        start_meeting,
+        next_speaker,
+        end_meeting,
+        get_current_meeting,
+        run_full_discussion,
+        ROLE_SPEECH_STYLES
+    )
+    
+    # POST /api/meeting/start - 开始新会议
+    elif path == "/api/meeting/start" and method == "POST":
+        data = json.loads(body) if body else {}
+        result = start_meeting(
+            topic=data.get("topic", ""),
+            participants=data.get("participants")  # 可选，默认全部
+        )
+        return {"success": True, "meeting": result}
+    
+    # POST /api/meeting/next - 下一位发言人
+    elif path == "/api/meeting/next" and method == "POST":
+        data = json.loads(body) if body else {}
+        result = next_speaker(context=data.get("context"))
+        return {"success": True, "turn": result}
+    
+    # POST /api/meeting/end - 结束会议
+    elif path == "/api/meeting/end" and method == "POST":
+        result = end_meeting()
+        return {"success": True, "meeting": result}
+    
+    # GET /api/meeting/status - 获取当前会议状态
+    elif path == "/api/meeting/status" and method == "GET":
+        result = get_current_meeting()
+        if result.get("success") == False:
+            return {"success": False, "error": result.get("error")}
+        return {"success": True, "meeting": result}
+    
+    # GET /api/meeting/roles - 获取角色发言风格
+    elif path == "/api/meeting/roles" and method == "GET":
+        return {"success": True, "roles": ROLE_SPEECH_STYLES}
+    
+    # POST /api/meeting/run - 一键运行完整讨论
+    elif path == "/api/meeting/run" and method == "POST":
+        data = json.loads(body) if body else {}
+        result = run_full_discussion(
+            topic=data.get("topic", ""),
+            context=data.get("context")
+        )
+        return {"success": True, "meeting": result}
+    
     return {"error": "Not found"}
