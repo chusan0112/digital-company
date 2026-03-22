@@ -14,6 +14,42 @@ from storage.repository import list_recent_decisions, list_recent_approvals
 from domains.finance_extended import get_finance_service
 from domains.market_service import get_market_service
 from domains.satisfaction_service import get_satisfaction_service
+from domains.project_lifecycle_service import get_lifecycle_service
+
+# Import meeting module
+from core.meeting import (
+    start_meeting,
+    next_speaker,
+    end_meeting,
+    get_current_meeting,
+    run_full_discussion,
+    ROLE_SPEECH_STYLES
+)
+
+# Import task execution module
+from core.task_execution import (
+    create_task,
+    create_tasks_from_conclusion,
+    assign_task,
+    set_task_priority,
+    set_task_due_date,
+    start_task,
+    update_task_progress,
+    add_task_log,
+    complete_task,
+    fail_task,
+    get_task_status,
+    get_all_tasks,
+    get_task_statistics,
+    TASK_STATUS_PENDING,
+    TASK_STATUS_IN_PROGRESS,
+    TASK_STATUS_COMPLETED,
+    TASK_STATUS_FAILED,
+    PRIORITY_LOW,
+    PRIORITY_MEDIUM,
+    PRIORITY_HIGH,
+    PRIORITY_URGENT
+)
 
 # Import OpenClaw integration
 try:
@@ -1131,16 +1167,6 @@ def handle_request(path, method="GET", body=None, headers=None):
     
     # ============== 会议讨论系统接口 ==============
     
-    # 导入会议模块
-    from core.meeting import (
-        start_meeting,
-        next_speaker,
-        end_meeting,
-        get_current_meeting,
-        run_full_discussion,
-        ROLE_SPEECH_STYLES
-    )
-    
     # POST /api/meeting/start - 开始新会议
     elif path == "/api/meeting/start" and method == "POST":
         data = json.loads(body) if body else {}
@@ -1182,31 +1208,6 @@ def handle_request(path, method="GET", body=None, headers=None):
         return {"success": True, "meeting": result}
     
     # ============== 任务执行系统接口 ==============
-    
-    # 导入任务执行模块
-    from core.task_execution import (
-        create_task,
-        create_tasks_from_conclusion,
-        assign_task,
-        set_task_priority,
-        set_task_due_date,
-        start_task,
-        update_task_progress,
-        add_task_log,
-        complete_task,
-        fail_task,
-        get_task_status,
-        get_all_tasks,
-        get_task_statistics,
-        TASK_STATUS_PENDING,
-        TASK_STATUS_IN_PROGRESS,
-        TASK_STATUS_COMPLETED,
-        TASK_STATUS_FAILED,
-        PRIORITY_LOW,
-        PRIORITY_MEDIUM,
-        PRIORITY_HIGH,
-        PRIORITY_URGENT
-    )
     
     # POST /api/task - 创建任务
     elif path == "/api/task" and method == "POST":
@@ -1638,5 +1639,91 @@ def handle_request(path, method="GET", body=None, headers=None):
     if path == "/api/lifecycle/statistics" and method == "GET":
         stats = lifecycle.get_project_statistics()
         return {"success": True, "statistics": stats}
+    
+    # ---- 大屏会议实时数据 ----
+    
+    # GET /api/dashboard/meeting - 获取大屏会议实时数据
+    if path == "/api/dashboard/meeting" and method == "GET":
+        # 获取lifecycle服务
+        lifecycle = get_lifecycle_service()
+        
+        # 获取当前进行中的会议（内存中的）
+        meeting_result = get_current_meeting()
+        
+        # 获取所有项目，查找正在进行中的
+        all_projects = lifecycle.list_projects()
+        active_project = None
+        active_meeting = None
+        
+        for proj in all_projects:
+            # 查找该项目下状态为进行中的会议
+            proj_meetings = proj.get("meetings", [])
+            for meeting_id in proj_meetings:
+                meeting = lifecycle.get_meeting(proj["id"], meeting_id)
+                if meeting and meeting.get("status") == "in_progress":
+                    active_project = proj
+                    active_meeting = meeting
+                    break
+            if active_meeting:
+                break
+        
+        # 构建返回数据
+        meeting_data = {
+            "has_active_meeting": False,
+            "project_name": "",
+            "meeting_title": "",
+            "status": "",
+            "progress": "",
+            "speeches": [],
+            "participants": []
+        }
+        
+        # 如果有正在进行中的会议（内存中的会议优先）
+        if meeting_result.get("success"):
+            meeting_data["has_active_meeting"] = True
+            meeting_data["meeting_title"] = meeting_result.get("topic", "")
+            meeting_data["status"] = meeting_result.get("status", "")
+            
+            # 计算进度
+            participants = meeting_result.get("participants", [])
+            current_turn = meeting_result.get("current_turn", 0)
+            if participants:
+                meeting_data["progress"] = f"{current_turn}/{len(participants)}"
+            else:
+                meeting_data["progress"] = "0/0"
+            
+            # 获取发言内容
+            speeches = meeting_result.get("speeches", [])
+            for speech in speeches:
+                meeting_data["speeches"].append({
+                    "role": speech.get("speaker_role", ""),
+                    "title": speech.get("speaker_title", ""),
+                    "content": speech.get("speech_content", ""),
+                    "timestamp": speech.get("timestamp", "")
+                })
+        
+        # 如果有正在进行中的项目会议
+        elif active_meeting:
+            meeting_data["has_active_meeting"] = True
+            meeting_data["project_name"] = active_project.get("name", "") if active_project else ""
+            meeting_data["meeting_title"] = active_meeting.get("title", "")
+            meeting_data["status"] = active_meeting.get("status", "")
+            
+            # 读取speeches
+            speeches = active_meeting.get("speeches", [])
+            for speech in speeches:
+                meeting_data["speeches"].append({
+                    "role": speech.get("speaker_role", ""),
+                    "title": speech.get("speaker_title", ""),
+                    "content": speech.get("speech_content", ""),
+                    "timestamp": speech.get("timestamp", "")
+                })
+            
+            # 进度
+            total = len(active_meeting.get("participants", []))
+            done = len(speeches)
+            meeting_data["progress"] = f"{done}/{total}"
+        
+        return {"success": True, "meeting": meeting_data}
     
     return {"error": "Not found"}

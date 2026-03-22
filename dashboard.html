@@ -479,6 +479,130 @@
             font-weight: 500;
         }
         
+        /* Meeting Section */
+        .meeting-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .meeting-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(47, 129, 247, 0.1) 0%, rgba(19,26,38,0.95) 100%);
+        }
+        
+        .meeting-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .meeting-title-icon {
+            font-size: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        .meeting-progress {
+            font-size: 13px;
+            color: var(--accent-cyan);
+            background: rgba(86, 212, 221, 0.15);
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+        
+        .speech-list {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        
+        .speech-item {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 14px;
+            transition: background 0.2s;
+        }
+        
+        .speech-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .speech-item:last-child {
+            border-bottom: none;
+        }
+        
+        .speech-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .speech-ceo { background: linear-gradient(135deg, #f85149, #da3633); }
+        .speech-cfo { background: linear-gradient(135deg, #2f81f7, #1a4b8c); }
+        .speech-cto { background: linear-gradient(135deg, #3fb950, #238636); }
+        .speech-coo { background: linear-gradient(135deg, #d29922, #9e6a03); }
+        .speech-chro { background: linear-gradient(135deg, #a371f7, #6e40c9); }
+        
+        .speech-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .speech-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .speech-role {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .speech-title {
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--bg-dark);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .speech-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .meeting-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        
+        .meeting-empty-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        }
+        
         /* Empty State */
         .empty-state {
             padding: 30px 20px;
@@ -591,6 +715,23 @@
             <div class="stat-card green">
                 <div class="stat-label">💰 可用预算</div>
                 <div class="stat-value green" id="budget">¥0</div>
+            </div>
+        </div>
+        
+        <!-- Meeting Section -->
+        <div class="meeting-card" id="meetingCard">
+            <div class="meeting-header">
+                <div class="meeting-title">
+                    <span class="meeting-title-icon">📢</span>
+                    <span id="meetingTitle">正在开会</span>
+                </div>
+                <div class="meeting-progress" id="meetingProgress">--</div>
+            </div>
+            <div class="speech-list" id="speechList">
+                <div class="meeting-empty">
+                    <div class="meeting-empty-icon">🎙️</div>
+                    <div>当前没有进行中的会议</div>
+                </div>
             </div>
         </div>
         
@@ -977,6 +1118,103 @@
             elements.activityList.innerHTML = html;
         }
         
+        // 获取会议数据
+        async function fetchMeetingData() {
+            try {
+                const response = await fetch('/api/dashboard/meeting');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderMeeting(result.meeting);
+                }
+            } catch (error) {
+                console.error('Fetch meeting error:', error);
+            }
+        }
+        
+        // 获取角色头像样式
+        function getSpeechAvatarClass(role) {
+            const roleMap = {
+                'CEO': 'speech-ceo',
+                'CFO': 'speech-cfo',
+                'CTO': 'speech-cto',
+                'COO': 'speech-coo',
+                'CHRO': 'speech-chro'
+            };
+            return roleMap[role] || 'avatar-blue';
+        }
+        
+        // 渲染会议
+        function renderMeeting(meeting) {
+            const meetingCard = document.getElementById('meetingCard');
+            const meetingTitle = document.getElementById('meetingTitle');
+            const meetingProgress = document.getElementById('meetingProgress');
+            const speechList = document.getElementById('speechList');
+            
+            if (!meeting || !meeting.has_active_meeting) {
+                // 没有进行中的会议
+                meetingTitle.textContent = '暂无会议';
+                meetingProgress.textContent = '--';
+                speechList.innerHTML = `
+                    <div class="meeting-empty">
+                        <div class="meeting-empty-icon">🎙️</div>
+                        <div>当前没有进行中的会议</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 有进行中的会议
+            const title = meeting.meeting_title || 'AI团队会议';
+            meetingTitle.textContent = `📢 正在开会：${title}`;
+            meetingProgress.textContent = `进度: ${meeting.progress || '0/0'}`;
+            
+            // 渲染发言列表
+            const speeches = meeting.speeches || [];
+            if (speeches.length === 0) {
+                speechList.innerHTML = `
+                    <div class="meeting-empty">
+                        <div class="meeting-empty-icon">🎤</div>
+                        <div>会议刚刚开始，等待发言...</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            speeches.forEach((speech, index) => {
+                // 截取内容前200个字符显示
+                let content = speech.content || '';
+                if (content.length > 200) {
+                    content = content.substring(0, 200) + '...';
+                }
+                
+                const avatarClass = getSpeechAvatarClass(speech.role);
+                const roleEmoji = {
+                    'CEO': '🔴',
+                    'CFO': '🔵',
+                    'CTO': '🟢',
+                    'COO': '🟡',
+                    'CHRO': '🟣'
+                }[speech.role] || '⚪';
+                
+                html += `
+                    <div class="speech-item">
+                        <div class="speech-avatar ${avatarClass}">${roleEmoji}</div>
+                        <div class="speech-content">
+                            <div class="speech-header">
+                                <span class="speech-role">${speech.role || '发言人'}</span>
+                                <span class="speech-title">${speech.title || ''}</span>
+                            </div>
+                            <div class="speech-text">${content}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            speechList.innerHTML = html;
+        }
+        
         // 获取数据
         async function fetchData() {
             try {
@@ -1036,6 +1274,7 @@
             setInterval(updateClock, 1000);
             
             await fetchData();
+            await fetchMeetingData();
             connectSSE();
             
             // 渲染看板
@@ -1049,6 +1288,9 @@
             
             // 每30秒刷新一次完整数据
             setInterval(fetchData, 30000);
+            
+            // 每10秒刷新一次会议数据（实时性要求更高）
+            setInterval(fetchMeetingData, 10000);
         }
         
         // 启动
