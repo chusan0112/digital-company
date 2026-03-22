@@ -1,0 +1,9 @@
+{
+  "approval": {
+    "budget_threshold": 200000,
+    "high_risk_budget_threshold": 500000,
+    "always_require_approval_intents": [
+      "launch_new_business"
+    ]
+  }
+}

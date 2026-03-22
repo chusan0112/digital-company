@@ -1,0 +1,30 @@
+# 数字公司插件
+
+name: digital-company
+version: 1.0.0
+slug: digital-company
+title: "数字公司插件 - Digital Company"
+description: "让OpenClaw变成活的数字企业，模拟真实公司运作"
+
+triggers:
+  - 公司
+  - 驾驶舱
+  - 数字公司
+  - 状态
+
+entry: main.py
+
+dependencies: []
+
+capabilities:
+  dashboard:
+    description: "获取公司驾驶舱数据"
+  
+  employees:
+    description: "管理员工"
+    
+  projects:
+    description: "管理项目"
+    
+  tasks:
+    description: "管理任务"
