@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金库集团 - 实时驾驶舱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-dark: #0f1419;
+            --bg-card: #1a1f2e;
+            --bg-card-hover: #242938;
+            --text-primary: #e7e9ea;
+            --text-secondary: #8b98a5;
+            --accent-blue: #1d9bf0;
+            --accent-green: #00ba7c;
+            --accent-orange: #ff9700;
+            --accent-red: #f4212e;
+            --accent-purple: #8b5cf6;
+            --border-color: #2f3944;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+        
+        .company-name {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .last-update {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--accent-green);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Main Layout */
+        .main {
+            padding: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .stat-value.working { color: var(--accent-blue); }
+        .stat-value.idle { color: var(--text-secondary); }
+        .stat-value.total { color: var(--text-primary); }
+        .stat-value.budget { color: var(--accent-green); }
+        
+        .stat-change {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+        }
+        
+        /* Employee List */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 0;
+        }
+        
+        .employee-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .employee-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+        
+        .employee-item:hover {
+            background: var(--bg-card-hover);
+        }
+        
+        .employee-item:last-child {
+            border-bottom: none;
+        }
+        
+        .employee-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .employee-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .employee-name {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .employee-role {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .employee-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-working {
+            background: rgba(29, 155, 240, 0.15);
+            color: var(--accent-blue);
+        }
+        
+        .status-idle {
+            background: rgba(139, 152, 165, 0.15);
+            color: var(--text-secondary);
+        }
+        
+        .status-discussing {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent-purple);
+        }
+        
+        .status-resting {
+            background: rgba(255, 151, 0, 0.15);
+            color: var(--accent-orange);
+        }
+        
+        /* Task Panel */
+        .task-panel {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .task-panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .task-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .task-form select,
+        .task-form input,
+        .task-form textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .task-form select:focus,
+        .task-form input:focus,
+        .task-form textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .task-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .task-form button {
+            padding: 10px 20px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .task-form button:hover {
+            background: #1a8cd8;
+        }
+        
+        .task-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Recent Activity */
+        .activity-list {
+            padding: 16px 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .activity-agent {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+        
+        .activity-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .activity-content {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">🦞 金库集团</div>
+            <div class="company-name">数字公司实时驾驶舱</div>
+        </div>
+        <div class="header-right">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>实时连接</span>
+            </div>
+            <div class="last-update" id="lastUpdate">加载中...</div>
+        </div>
+    </header>
+    
+    <main class="main">
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">工作中员工</div>
+                <div class="stat-value working" id="workingCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">空闲员工</div>
+                <div class="stat-value idle" id="idleCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">总员工数</div>
+                <div class="stat-value total" id="totalCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">可用预算</div>
+                <div class="stat-value budget" id="budgetCount">¥0</div>
+            </div>
+        </div>
+        
+        <!-- Content -->
+        <div class="content-grid">
+            <!-- Employee List -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">👥 员工状态</div>
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>实时更新</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="employee-list" id="employeeList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Task Panel -->
+            <div class="task-panel">
+                <div class="task-panel-header">
+                    <div class="task-panel-title">📋 任务分配</div>
+                    <form class="task-form" id="taskForm">
+                        <select id="employeeSelect" required>
+                            <option value="">选择员工...</option>
+                        </select>
+                        <textarea id="taskInput" placeholder="输入任务描述..." required></textarea>
+                        <button type="submit" id="submitBtn">🚀 发送任务</button>
+                    </form>
+                </div>
+                <div class="activity-list" id="activityList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>暂无活动记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // 全局状态
+        let dashboardData = null;
+        let eventSource = null;
+        
+        // DOM元素
+        const elements = {
+            lastUpdate: document.getElementById('lastUpdate'),
+            workingCount: document.getElementById('workingCount'),
+            idleCount: document.getElementById('idleCount'),
+            totalCount: document.getElementById('totalCount'),
+            budgetCount: document.getElementById('budgetCount'),
+            employeeList: document.getElementById('employeeList'),
+            employeeSelect: document.getElementById('employeeSelect'),
+            taskForm: document.getElementById('taskForm'),
+            taskInput: document.getElementById('taskInput'),
+            submitBtn: document.getElementById('submitBtn'),
+            activityList: document.getElementById('activityList')
+        };
+        
+        // 格式化时间
+        function formatTime(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            
+            if (diff < 60) return '刚刚';
+            if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+            return date.toLocaleDateString('zh-CN');
+        }
+        
+        // 获取状态样式
+        function getStatusClass(status) {
+            const map = {
+                'working': 'status-working',
+                'idle': 'status-idle',
+                'discussing': 'status-discussing',
+                'resting': 'status-resting'
+            };
+            return map[status] || 'status-idle';
+        }
+        
+        // 获取状态文本
+        function getStatusText(status) {
+            const map = {
+                'working': '工作中',
+                'idle': '空闲',
+                'discussing': '讨论中',
+                'resting': '休息中'
+            };
+            return map[status] || '未知';
+        }
+        
+        // 渲染员工列表
+        function renderEmployees(data) {
+            if (!data || !data.employees) {
+                elements.employeeList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <div>暂无员工数据</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const employees = data.employees;
+            let html = '';
+            
+            employees.forEach(emp => {
+                const avatarChar = emp.name.charAt(1) || '?';
+                html += `
+                    <div class="employee-item" data-agent-id="${emp.agent_id}">
+                        <div class="employee-avatar">${avatarChar}</div>
+                        <div class="employee-info">
+                            <div class="employee-name">${emp.name}</div>
+                            <div class="employee-role">${emp.role} · ${emp.department}</div>
+                        </div>
+                        <div class="employee-status ${getStatusClass(emp.status)}">
+                            ${getStatusText(emp.status)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            elements.employeeList.innerHTML = html;
+            
+            // 更新员工选择下拉框
+            updateEmployeeSelect(employees);
+        }
+        
+        // 更新员工选择下拉框
+        function updateEmployeeSelect(employees) {
+            if (!employees || employees.length === 0) return;
+            
+            const currentValue = elements.employeeSelect.value;
+            let html = '<option value="">选择员工...</option>';
+            
+            employees.forEach(emp => {
+                html += `<option value="${emp.agent_id}">${emp.name} - ${emp.role}</option>`;
+            });
+            
+            elements.employeeSelect.innerHTML = html;
+            
+            // 保持之前的选择
+            if (currentValue) {
+                elements.employeeSelect.value = currentValue;
+            }
+        }
+        
+        // 渲染统计数据
+        function renderStats(data) {
+            if (!data) return;
+            
+            const status = data.employees_by_status || {};
+            elements.workingCount.textContent = status.working || 0;
+            elements.idleCount.textContent = status.idle || 0;
+            elements.totalCount.textContent = data.employees_count || 0;
+            
+            const financial = data.financial || {};
+            elements.budgetCount.textContent = `¥${financial.balance || 0}`;
+            
+            if (data.last_update) {
+                elements.lastUpdate.textContent = `最后更新: ${formatTime(data.last_update)}`;
+            }
+        }
+        
+        // 添加活动记录
+        function addActivity(agentName, content) {
+            const time = new Date().toLocaleTimeString('zh-CN');
+            const html = `
+                <div class="activity-item">
+                    <div class="activity-header">
+                        <span class="activity-agent">${agentName}</span>
+                        <span class="activity-time">${time}</span>
+                    </div>
+                    <div class="activity-content">${content}</div>
+                </div>
+            `;
+            
+            // 插入到列表开头
+            const existing = elements.activityList.querySelector('.empty-state');
+            if (existing) {
+                elements.activityList.innerHTML = html;
+            } else {
+                elements.activityList.insertAdjacentHTML('afterbegin', html);
+            }
+            
+            // 限制显示数量
+            const items = elements.activityList.querySelectorAll('.activity-item');
+            if (items.length > 20) {
+                items[items.length - 1].remove();
+            }
+        }
+        
+        // 获取数据
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/realtime/dashboard');
+                const data = await response.json();
+                dashboardData = data;
+                
+                renderStats(data);
+                renderEmployees(data);
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
+        }
+        
+        // 发送任务
+        async function sendTask(agentId, task) {
+            elements.submitBtn.disabled = true;
+            elements.submitBtn.textContent = '发送中...';
+            
+            try {
+                const response = await fetch('/api/realtime/task', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        task: task
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addActivity(elements.employeeSelect.options[elements.employeeSelect.selectedIndex].text, 
+                              task.substring(0, 50) + '...');
+                    elements.taskInput.value = '';
+                } else {
+                    alert('发送失败: ' + result.error);
+                }
+                
+            } catch (error) {
+                console.error('Task error:', error);
+                alert('发送失败: ' + error.message);
+            } finally {
+                elements.submitBtn.disabled = false;
+                elements.submitBtn.textContent = '🚀 发送任务';
+            }
+        }
+        
+        // 表单提交
+        elements.taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const agentId = elements.employeeSelect.value;
+            const task = elements.taskInput.value.trim();
+            
+            if (!agentId || !task) {
+                alert('请选择员工并输入任务');
+                return;
+            }
+            
+            sendTask(agentId, task);
+        });
+        
+        // SSE连接
+        function connectSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource('/api/realtime/stream');
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.keepalive) return;
+                    
+                    // 更新统计数据
+                    if (data.agents) {
+                        const statusCounts = {
+                            working: data.agents.filter(a => a.status === 'working').length,
+                            idle: data.agents.filter(a => a.status === 'idle').length,
+                            discussing: data.agents.filter(a => a.status === 'discussing').length,
+                            resting: data.agents.filter(a => a.status === 'resting').length
+                        };
+                        
+                        elements.workingCount.textContent = statusCounts.working;
+                        elements.idleCount.textContent = statusCounts.idle;
+                        elements.totalCount.textContent = data.agents.length;
+                    }
+                    
+                } catch (error) {
+                    console.error('SSE parse error:', error);
+                }
+            };
+            
+            eventSource.onerror = () => {
+                console.log('SSE disconnected, reconnecting...');
+                setTimeout(connectSSE, 5000);
+            };
+        }
+        
+        // 初始化
+        async function init() {
+            await fetchData();
+            connectSSE();
+            
+            // 每30秒刷新一次完整数据
+            setInterval(fetchData, 30000);
+        }
+        
+        // 启动
+        init();
+    </script>
+</body>
+</html>
