@@ -25,7 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from company import get_company
 from web.server import start_server
-from reporter import start_reporting
+from reporter import start_reporting, get_reporter
+from feishu_reporter import get_feishu_reporter
+import os
 import threading
 
 
@@ -51,8 +53,17 @@ def main():
     print("  驾驶舱地址: http://localhost:8080")
     print()
     
-    # 启动定时汇报 (可选)
-    # start_reporting(60)  # 注释掉，需要配置飞书Webhook
+    # 启动定时汇报（飞书未配置时仅打印日志，不影响主程序）
+    webhook = os.environ.get("FEISHU_WEBHOOK_URL")
+    if webhook:
+        print("  ✓ 飞书Webhook已配置")
+        start_reporting(60)  # 每60秒汇报一次
+    else:
+        print("  ✗ 飞书未配置 (设置 FEISHU_WEBHOOK_URL 环境变量)")
+        # 即使未配置也启动汇报器（仅打印日志）
+        start_reporting(60)
+    
+    print()
     
     # 启动Web服务
     start_server(8080)

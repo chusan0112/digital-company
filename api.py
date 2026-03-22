@@ -10,14 +10,127 @@ from core.approval_center import approve as approve_record, reject as reject_rec
 from workflows.weekly_review import generate_weekly_report
 from storage.repository import list_recent_decisions, list_recent_approvals
 
+# Import auth module
+try:
+    from auth.jwt_auth import (
+        create_token, verify_token, authenticate_user,
+        blacklist_token, init_default_users
+    )
+    # Initialize default users
+    init_default_users()
+    AUTH_ENABLED = True
+except ImportError:
+    AUTH_ENABLED = False
 
-def handle_request(path, method="GET", body=None):
+# Token storage for API-based auth (simple in-memory)
+_token_store = {}
+
+
+def _extract_token(headers=None, body=None):
+    """Extract token from headers or body"""
+    if headers:
+        auth_header = headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            return auth_header[7:]
+    
+    if body:
+        try:
+            data = json.loads(body) if isinstance(body, str) else body
+            return data.get('token', '')
+        except:
+            pass
+    
+    return None
+
+
+def _verify_request(headers=None, body=None):
+    """Verify authentication for protected endpoints"""
+    if not AUTH_ENABLED:
+        return {"authenticated": False, "error": "Auth not enabled"}
+    
+    token = _extract_token(headers, body)
+    if not token:
+        return {"authenticated": False, "error": "No token provided"}
+    
+    if token in _token_store.get('blacklist', set()):
+        return {"authenticated": False, "error": "Token revoked"}
+    
+    payload = verify_token(token)
+    if not payload:
+        return {"authenticated": False, "error": "Invalid or expired token"}
+    
+    return {"authenticated": True, "user": payload}
+
+
+def handle_request(path, method="GET", body=None, headers=None):
     """处理API请求"""
     company = get_company()
     
+    # ============== 认证接口 ==============
+    # POST /api/auth/login - 用户登录
+    if path == "/api/auth/login" and method == "POST":
+        data = json.loads(body) if body else {}
+        
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return {"success": False, "error": "Username and password are required"}
+        
+        user = authenticate_user(username, password)
+        
+        if not user:
+            return {"success": False, "error": "Invalid username or password"}
+        
+        token = create_token(user['id'], user['username'], user['role'])
+        
+        return {
+            "success": True,
+            "message": "Login successful",
+            "token": token,
+            "user": {
+                "id": user['id'],
+                "username": user['username'],
+                "role": user['role']
+            }
+        }
+    
+    # POST /api/auth/logout - 用户登出
+    elif path == "/api/auth/logout" and method == "POST":
+        auth_result = _verify_request(headers, body)
+        
+        if not auth_result.get('authenticated'):
+            return {"success": False, "error": auth_result.get('error', 'Authentication failed')}
+        
+        token = _extract_token(headers, body)
+        if token:
+            if 'blacklist' not in _token_store:
+                _token_store['blacklist'] = set()
+            _token_store['blacklist'].add(token)
+        
+        return {"success": True, "message": "Logout successful"}
+    
+    # GET /api/auth/verify - 验证token
+    elif path == "/api/auth/verify" and method == "GET":
+        auth_result = _verify_request(headers, body)
+        
+        if not auth_result.get('authenticated'):
+            return {"success": False, "error": auth_result.get('error', 'Authentication failed')}
+        
+        user = auth_result.get('user', {})
+        return {
+            "success": True,
+            "user": {
+                "id": user.get('user_id'),
+                "username": user.get('username'),
+                "role": user.get('role')
+            }
+        }
+    
+    # ============== 公开接口 ==============
     # 路由
     if path == "/api/health":
-        return {"success": True, "service": "digital-company", "status": "ok"}
+        return {"success": True, "service": "digital-company", "status": "ok", "auth_enabled": AUTH_ENABLED}
 
     if path == "/api/dashboard":
         return company.get_dashboard()

@@ -41,12 +41,13 @@ class PeriodicReporter:
             time.sleep(self.interval)
     
     def report(self):
-        """执行汇报"""
-        company = get_company()
-        data = company.get_dashboard()
-        
-        # 格式化消息
-        text = f"""📊 金库集团实时状态
+        """执行汇报（错误隔离，不影响主程序）"""
+        try:
+            company = get_company()
+            data = company.get_dashboard()
+            
+            # 格式化消息
+            text = f"""📊 金库集团实时状态
 
 💰 资金: ¥{data['financial']['balance']} / ¥{data['financial']['budget']}
 👥 员工: {data['employees']}人 (工作中 {data['employees_by_status']['working']})
@@ -54,15 +55,24 @@ class PeriodicReporter:
 ✅ 任务: {data['tasks']['total']}个 (待处理 {data['tasks']['pending']} / 进行中 {data['tasks']['in_progress']})
 
 — 金多多自动汇报"""
-        
-        reporter = get_feishu_reporter()
-        if reporter.enabled:
-            reporter.send_message(text)
-            print("已发送飞书汇报")
-        else:
-            print(f"飞书未配置，仅打印: {text}")
-        
-        return text
+            
+            reporter = get_feishu_reporter()
+            if reporter.enabled:
+                success = reporter.send_message(text)
+                if success:
+                    print("[OK] Feishu report sent")
+                else:
+                    print("[WARN] Feishu report failed (logged,不影响主程序)")
+            else:
+                # 仅打印ASCII兼容部分
+                simple_text = f"REPORT: {data['financial']['balance']}/{data['financial']['budget']} | {data['employees']} staff | {data['projects']['running']} projects"
+                print(simple_text)
+            
+            return text
+        except Exception as e:
+            # 汇报失败不影响主程序
+            print(f"[ERROR] Report exception (isolated): {e}")
+            return None
 
 
 # 全局实例

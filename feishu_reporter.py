@@ -12,8 +12,10 @@ class FeishuReporter:
     """飞书汇报器"""
     
     def __init__(self, webhook_url=None):
-        self.webhook_url = webhook_url
-        self.enabled = bool(webhook_url)
+        # 优先使用传入的webhook，其次尝试环境变量
+        import os
+        self.webhook_url = webhook_url or os.environ.get("FEISHU_WEBHOOK_URL")
+        self.enabled = bool(self.webhook_url)
     
     def send_dashboard(self):
         """发送驾驶舱数据到飞书"""
@@ -85,7 +87,7 @@ class FeishuReporter:
         })
     
     def _send_message(self, payload):
-        """发送消息"""
+        """发送消息（带错误处理，不抛出异常）"""
         try:
             response = requests.post(
                 self.webhook_url,
@@ -93,7 +95,16 @@ class FeishuReporter:
                 data=json.dumps(payload),
                 timeout=10
             )
-            return response.status_code == 200
+            if response.status_code != 200:
+                print(f"飞书API错误: HTTP {response.status_code}")
+                return False
+            return True
+        except requests.exceptions.Timeout:
+            print("飞书发送超时")
+            return False
+        except requests.exceptions.ConnectionError:
+            print("飞书连接失败")
+            return False
         except Exception as e:
             print(f"飞书发送失败: {e}")
             return False

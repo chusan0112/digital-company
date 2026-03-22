@@ -93,6 +93,74 @@ def get_executive_governance_data():
     }
 
 
+# ============== 交互功能 API =============
+
+def validate_task_data(data: dict) -> tuple:
+    """验证任务数据"""
+    if not data:
+        return False, "请求体不能为空"
+    
+    name = data.get('name', '').strip()
+    if not name:
+        return False, "任务名称不能为空"
+    if len(name) > 100:
+        return False, "任务名称不能超过100个字符"
+    
+    priority = data.get('priority', 1)
+    try:
+        priority = int(priority)
+        if priority < 1 or priority > 5:
+            return False, "优先级必须在1-5之间"
+    except (ValueError, TypeError):
+        return False, "优先级必须是数字"
+    
+    return True, None
+
+
+def validate_employee_status_data(data: dict) -> tuple:
+    """验证员工状态更新数据"""
+    if not data:
+        return False, "请求体不能为空"
+    
+    emp_id = data.get('employee_id', '').strip()
+    if not emp_id:
+        return False, "员工ID不能为空"
+    
+    status = data.get('status', '').strip()
+    valid_statuses = ['working', 'idle', 'meeting']
+    if status not in valid_statuses:
+        return False, f"状态必须是: {', '.join(valid_statuses)}"
+    
+    return True, None
+
+
+def validate_expense_data(data: dict) -> tuple:
+    """验证支出数据"""
+    if not data:
+        return False, "请求体不能为空"
+    
+    amount = data.get('amount')
+    if amount is None:
+        return False, "支出金额不能为空"
+    
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            return False, "支出金额必须大于0"
+        if amount > 1000000:
+            return False, "单笔支出不能超过100万元"
+    except (ValueError, TypeError):
+        return False, "支出金额必须是有效数字"
+    
+    description = data.get('description', '').strip()
+    if not description:
+        return False, "支出描述不能为空"
+    if len(description) > 200:
+        return False, "支出描述不能超过200个字符"
+    
+    return True, None
+
+
 class DashboardHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
@@ -147,6 +215,160 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def do_POST(self):
+        """处理POST请求 - 交互功能"""
+        if self.path == '/api/tasks/create':
+            self.handle_create_task()
+        elif self.path == '/api/employees/update-status':
+            self.handle_update_employee_status()
+        elif self.path == '/api/expenses/add':
+            self.handle_add_expense()
+        else:
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": "未找到该接口"}, ensure_ascii=False).encode('utf-8'))
+
+    def handle_create_task(self):
+        """创建新任务"""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            self.send_error_response("请求体必须是有效的JSON")
+            return
+
+        # 验证数据
+        valid, error = validate_task_data(data)
+        if not valid:
+            self.send_error_response(error)
+            return
+
+        # 创建任务
+        try:
+            company = get_company()
+            task = company.create_task(
+                name=data['name'].strip(),
+                description=data.get('description', '').strip(),
+                project_id=data.get('project_id', '').strip(),
+                assignee_id=data.get('assignee_id', '').strip(),
+                priority=int(data.get('priority', 1))
+            )
+            
+            self.send_response(201)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": True,
+                "message": "任务创建成功",
+                "task": {
+                    "id": task.id,
+                    "name": task.name,
+                    "status": task.status,
+                    "priority": task.priority
+                }
+            }, ensure_ascii=False).encode('utf-8'))
+        except Exception as e:
+            self.send_error_response(f"创建任务失败: {str(e)}")
+
+    def handle_update_employee_status(self):
+        """更新员工状态"""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            self.send_error_response("请求体必须是有效的JSON")
+            return
+
+        # 验证数据
+        valid, error = validate_employee_status_data(data)
+        if not valid:
+            self.send_error_response(error)
+            return
+
+        # 更新状态
+        try:
+            company = get_company()
+            emp = company.get_employee(data['employee_id'])
+            if not emp:
+                self.send_error_response("员工不存在")
+                return
+            
+            company.update_employee_status(data['employee_id'], data['status'])
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": True,
+                "message": "员工状态更新成功",
+                "employee": {
+                    "id": emp.id,
+                    "name": emp.name,
+                    "status": data['status']
+                }
+            }, ensure_ascii=False).encode('utf-8'))
+        except Exception as e:
+            self.send_error_response(f"更新员工状态失败: {str(e)}")
+
+    def handle_add_expense(self):
+        """添加支出记录"""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            self.send_error_response("请求体必须是有效的JSON")
+            return
+
+        # 验证数据
+        valid, error = validate_expense_data(data)
+        if not valid:
+            self.send_error_response(error)
+            return
+
+        # 添加支出
+        try:
+            company = get_company()
+            balance = company.get_balance()
+            amount = float(data['amount'])
+            
+            if amount > balance:
+                self.send_error_response(f"余额不足，当前余额: ¥{balance}")
+                return
+            
+            success = company.spend(amount, data['description'].strip())
+            if not success:
+                self.send_error_response("支出失败")
+                return
+            
+            self.send_response(201)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": True,
+                "message": "支出记录添加成功",
+                "expense": {
+                    "amount": amount,
+                    "description": data['description'].strip(),
+                    "new_balance": company.get_balance()
+                }
+            }, ensure_ascii=False).encode('utf-8'))
+        except Exception as e:
+            self.send_error_response(f"添加支出失败: {str(e)}")
+
+    def send_error_response(self, message: str, status_code: int = 400):
+        """发送错误响应"""
+        self.send_response(status_code)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "success": False,
+            "error": message
+        }, ensure_ascii=False).encode('utf-8'))
 
 
 HTML = """<!DOCTYPE html>
@@ -291,12 +513,162 @@ HTML = """<!DOCTYPE html>
         @media (max-width: 600px) {
             .dashboard { grid-template-columns: 1fr; }
         }
+
+        /* 交互按钮 */
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin: 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .action-btn.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .action-btn.orange {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+        }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            padding: 25px;
+            width: 90%;
+            max-width: 450px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .modal h3 {
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-close {
+            float: right;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #888;
+        }
+        .modal-close:hover { color: #fff; }
+
+        /* 表单 */
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group select option { background: #1a1a2e; }
+
+        .form-error {
+            color: #e57373;
+            font-size: 0.75rem;
+            margin-top: 5px;
+            display: none;
+        }
+        .form-group.error input { border-color: #e57373; }
+        .form-group.error .form-error { display: block; }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .form-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102,126,234,0.4); }
+        .btn-cancel {
+            background: rgba(255,255,255,0.1);
+            color: #aaa;
+        }
+        .btn-cancel:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            z-index: 2000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .toast.error { background: linear-gradient(135deg, #eb3349, #f45c43); }
+
+        /* 操作按钮区域 */
+        .actions-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🏢 金库集团</h1>
         <div class="time">董事长驾驶舱 | <span id="updateTime"></span></div>
+        <div class="actions-bar">
+            <button class="action-btn green" onclick="openModal('taskModal')">➕ 新建任务</button>
+            <button class="action-btn orange" onclick="openModal('employeeModal')">👤 员工状态</button>
+            <button class="action-btn" onclick="openModal('expenseModal')">💸 添加支出</button>
+        </div>
     </div>
     
     <div class="dashboard">
@@ -357,7 +729,270 @@ HTML = """<!DOCTYPE html>
 
     </div>
     
+    <!-- 模态框: 创建任务 -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('taskModal')">&times;</span>
+            <h3>➕ 创建新任务</h3>
+            <form id="taskForm" onsubmit="submitTask(event)">
+                <div class="form-group">
+                    <label>任务名称 *</label>
+                    <input type="text" id="taskName" name="name" required maxlength="100" placeholder="输入任务名称">
+                    <div class="form-error">任务名称不能为空</div>
+                </div>
+                <div class="form-group">
+                    <label>任务描述</label>
+                    <textarea id="taskDesc" name="description" placeholder="描述任务内容（可选）"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>优先级 (1-5)</label>
+                    <select id="taskPriority" name="priority">
+                        <option value="1">1 - 最低</option>
+                        <option value="2">2 - 较低</option>
+                        <option value="3" selected>3 - 普通</option>
+                        <option value="4">4 - 较高</option>
+                        <option value="5">5 - 最高</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>分配员工</label>
+                    <select id="taskAssignee" name="assignee_id">
+                        <option value="">-- 未分配 --</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('taskModal')">取消</button>
+                    <button type="submit" class="btn-submit">创建任务</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 模态框: 更新员工状态 -->
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('employeeModal')">&times;</span>
+            <h3>👤 更新员工状态</h3>
+            <form id="employeeForm" onsubmit="submitEmployeeStatus(event)">
+                <div class="form-group">
+                    <label>选择员工 *</label>
+                    <select id="employeeSelect" name="employee_id" required>
+                        <option value="">-- 请选择员工 --</option>
+                    </select>
+                    <div class="form-error">请选择员工</div>
+                </div>
+                <div class="form-group">
+                    <label>新状态 *</label>
+                    <select id="employeeStatus" name="status" required>
+                        <option value="working">工作中</option>
+                        <option value="idle">闲置</option>
+                        <option value="meeting">会议中</option>
+                    </select>
+                    <div class="form-error">请选择状态</div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('employeeModal')">取消</button>
+                    <button type="submit" class="btn-submit">更新状态</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 模态框: 添加支出 -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('expenseModal')">&times;</span>
+            <h3>💸 添加支出记录</h3>
+            <form id="expenseForm" onsubmit="submitExpense(event)">
+                <div class="form-group">
+                    <label>支出金额 (¥) *</label>
+                    <input type="number" id="expenseAmount" name="amount" required min="0.01" step="0.01" placeholder="输入金额">
+                    <div class="form-error">请输入有效金额</div>
+                </div>
+                <div class="form-group">
+                    <label>支出描述 *</label>
+                    <textarea id="expenseDesc" name="description" required maxlength="200" placeholder="描述支出用途"></textarea>
+                    <div class="form-error">支出描述不能为空</div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('expenseModal')">取消</button>
+                    <button type="submit" class="btn-submit">添加支出</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="toast"></div>
+
     <script>
+        // ============== 模态框交互 ==============
+        let cachedEmployees = [];
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+            
+            // 如果是员工选择框，填充员工列表
+            if (modalId === 'employeeModal') {
+                populateEmployeeSelect();
+            }
+            // 如果是任务分配框，填充员工列表
+            if (modalId === 'taskModal') {
+                populateTaskAssigneeSelect();
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            // 重置表单
+            const form = document.querySelector(`#${modalId} form`);
+            if (form) form.reset();
+        }
+
+        // 点击模态框外部关闭
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        function populateEmployeeSelect() {
+            const select = document.getElementById('employeeSelect');
+            if (cachedEmployees.length > 0) {
+                select.innerHTML = '<option value="">-- 请选择员工 --</option>' + 
+                    cachedEmployees.map(e => `<option value="${e.id}">${e.name} (${e.role})</option>`).join('');
+            } else {
+                fetch('/api/employees').then(r => r.json()).then(emps => {
+                    cachedEmployees = emps;
+                    select.innerHTML = '<option value="">-- 请选择员工 --</option>' + 
+                        emps.map(e => `<option value="${e.id}">${e.name} (${e.role})</option>`).join('');
+                });
+            }
+        }
+
+        function populateTaskAssigneeSelect() {
+            const select = document.getElementById('taskAssignee');
+            if (cachedEmployees.length > 0) {
+                select.innerHTML = '<option value="">-- 未分配 --</option>' + 
+                    cachedEmployees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+            } else {
+                fetch('/api/employees').then(r => r.json()).then(emps => {
+                    cachedEmployees = emps;
+                    select.innerHTML = '<option value="">-- 未分配 --</option>' + 
+                        emps.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+                });
+            }
+        }
+
+        // ============== 表单提交 ==============
+        async function submitTask(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = {
+                name: form.name.value.trim(),
+                description: form.description.value.trim(),
+                priority: parseInt(form.priority.value),
+                assignee_id: form.assignee_id.value
+            };
+
+            try {
+                const res = await fetch('/api/tasks/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showToast('任务创建成功: ' + result.task.name, 'success');
+                    closeModal('taskModal');
+                    loadData(); // 刷新数据
+                } else {
+                    showToast(result.error || '创建失败', 'error');
+                }
+            } catch(err) {
+                showToast('请求失败: ' + err.message, 'error');
+            }
+        }
+
+        async function submitEmployeeStatus(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = {
+                employee_id: form.employee_id.value,
+                status: form.status.value
+            };
+
+            if (!data.employee_id) {
+                showToast('请选择员工', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/employees/update-status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showToast(`员工状态已更新为: ${result.employee.status === 'working' ? '工作中' : result.employee.status === 'idle' ? '闲置' : '会议中'}`, 'success');
+                    closeModal('employeeModal');
+                    loadData(); // 刷新数据
+                } else {
+                    showToast(result.error || '更新失败', 'error');
+                }
+            } catch(err) {
+                showToast('请求失败: ' + err.message, 'error');
+            }
+        }
+
+        async function submitExpense(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = {
+                amount: parseFloat(form.amount.value),
+                description: form.description.value.trim()
+            };
+
+            if (!data.amount || data.amount <= 0) {
+                showToast('请输入有效金额', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/expenses/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showToast(`支出 ¥${data.amount} 添加成功，余额: ¥${result.expense.new_balance}`, 'success');
+                    closeModal('expenseModal');
+                    loadData(); // 刷新数据
+                } else {
+                    showToast(result.error || '添加失败', 'error');
+                }
+            } catch(err) {
+                showToast('请求失败: ' + err.message, 'error');
+            }
+        }
+
+        // ============== Toast 提示 ==============
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type + ' show';
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3500);
+        }
+
+        // ============== 数据加载 ==============
         async function loadData() {
             try {
                 const [dash, emps, depts, projs, tasks, governance] = await Promise.all([
@@ -368,6 +1003,9 @@ HTML = """<!DOCTYPE html>
                     fetch('/api/tasks').then(r=>r.json()),
                     fetch('/api/governance').then(r=>r.json())
                 ]);
+                
+                // 缓存员工数据
+                cachedEmployees = emps;
                 
                 // 时间
                 document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
@@ -475,7 +1113,7 @@ HTML = """<!DOCTYPE html>
 
 
 def start_server(port=8080):
-    server_address = ('', port)
+    server_address = ('0.0.0.0', port)
     httpd = HTTPServer(server_address, DashboardHandler)
     print(f"驾驶舱已启动: http://localhost:{port}")
     httpd.serve_forever()
