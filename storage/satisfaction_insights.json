@@ -1,0 +1,166 @@
+[
+  {
+    "id": "291e3ac4",
+    "department_id": "dept_001",
+    "period": "2026-03",
+    "strengths": [
+      "管理水平优秀 (得分: 80.0)",
+      "团队协作优秀 (得分: 80.4)",
+      "工作生活平衡优秀 (得分: 82.6)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0,
+    "generated_at": "2026-03-22T21:31:24.687261"
+  },
+  {
+    "id": "98ff19ac",
+    "department_id": "dept_001",
+    "period": "2026-03",
+    "strengths": [
+      "薪酬福利优秀 (得分: 83.4)",
+      "管理水平优秀 (得分: 81.6)",
+      "团队协作优秀 (得分: 83.0)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 1.43,
+    "generated_at": "2026-03-22T21:31:39.067276"
+  },
+  {
+    "id": "a71cf783",
+    "department_id": "dept_001",
+    "period": "2026-03",
+    "strengths": [],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "declining",
+    "compared_to_last": -3.8,
+    "generated_at": "2026-03-22T21:31:55.606545"
+  },
+  {
+    "id": "69b4dae3",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "薪酬福利优秀 (得分: 80.8)",
+      "成长机会优秀 (得分: 84.2)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0,
+    "generated_at": "2026-03-22T21:33:45.237804"
+  },
+  {
+    "id": "8bfe7669",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "薪酬福利优秀 (得分: 80.8)",
+      "成长机会优秀 (得分: 84.2)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0,
+    "generated_at": "2026-03-22T21:33:45.254797"
+  },
+  {
+    "id": "7c334ff0",
+    "department_id": "dept_api_test",
+    "period": "2026-03",
+    "strengths": [
+      "成长机会优秀 (得分: 82.0)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0,
+    "generated_at": "2026-03-22T21:33:45.319741"
+  },
+  {
+    "id": "475f4219",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "薪酬福利优秀 (得分: 86.6)",
+      "成长机会优秀 (得分: 81.4)",
+      "团队协作优秀 (得分: 81.0)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0.83,
+    "generated_at": "2026-03-22T21:36:22.238103"
+  },
+  {
+    "id": "4d90e033",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "薪酬福利优秀 (得分: 86.6)",
+      "成长机会优秀 (得分: 81.4)",
+      "团队协作优秀 (得分: 81.0)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 0.83,
+    "generated_at": "2026-03-22T21:36:22.258725"
+  },
+  {
+    "id": "6f26071c",
+    "department_id": "dept_api_test",
+    "period": "2026-03",
+    "strengths": [
+      "团队协作优秀 (得分: 86.7)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": -0.67,
+    "generated_at": "2026-03-22T21:36:22.388828"
+  },
+  {
+    "id": "cbbbf3bf",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "管理水平优秀 (得分: 85.8)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": -1.93,
+    "generated_at": "2026-03-22T21:36:27.791551"
+  },
+  {
+    "id": "759be8cd",
+    "department_id": "dept_sim",
+    "period": "2026-03",
+    "strengths": [
+      "管理水平优秀 (得分: 85.8)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": -1.93,
+    "generated_at": "2026-03-22T21:36:27.809105"
+  },
+  {
+    "id": "bc127bc3",
+    "department_id": "dept_api_test",
+    "period": "2026-03",
+    "strengths": [
+      "成长机会优秀 (得分: 89.7)"
+    ],
+    "weaknesses": [],
+    "action_items": [],
+    "trend": "stable",
+    "compared_to_last": 2.06,
+    "generated_at": "2026-03-22T21:36:27.883420"
+  }
+]

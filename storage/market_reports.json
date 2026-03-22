@@ -1,0 +1,65 @@
+[
+  {
+    "id": "3565608a",
+    "title": "测试市场市场情报报告 - 2026-03",
+    "market_name": "测试市场",
+    "period": "2026-03",
+    "summary": "市场规模约1000000，增长率10.7%",
+    "opportunities": [
+      "市场快速增长"
+    ],
+    "threats": [
+      "暂无明显威胁"
+    ],
+    "recommendations": [
+      "加大市场投入，抢占份额"
+    ],
+    "data": {
+      "competitor_count": 0,
+      "market_share_records": 1
+    },
+    "created_at": "2026-03-22T21:33:45.175184"
+  },
+  {
+    "id": "e37f9733",
+    "title": "测试市场市场情报报告 - 2026-03",
+    "market_name": "测试市场",
+    "period": "2026-03",
+    "summary": "市场规模约1000000，增长率16.9%",
+    "opportunities": [
+      "市场快速增长"
+    ],
+    "threats": [
+      "暂无明显威胁"
+    ],
+    "recommendations": [
+      "加大市场投入，抢占份额"
+    ],
+    "data": {
+      "competitor_count": 0,
+      "market_share_records": 2
+    },
+    "created_at": "2026-03-22T21:36:22.155551"
+  },
+  {
+    "id": "036149bb",
+    "title": "测试市场市场情报报告 - 2026-03",
+    "market_name": "测试市场",
+    "period": "2026-03",
+    "summary": "市场规模约1000000，增长率17.5%",
+    "opportunities": [
+      "市场快速增长"
+    ],
+    "threats": [
+      "暂无明显威胁"
+    ],
+    "recommendations": [
+      "加大市场投入，抢占份额"
+    ],
+    "data": {
+      "competitor_count": 0,
+      "market_share_records": 3
+    },
+    "created_at": "2026-03-22T21:36:27.719330"
+  }
+]

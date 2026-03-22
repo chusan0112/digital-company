@@ -1,0 +1,35 @@
+[
+  {
+    "id": "bcc6fbd3",
+    "date": "2026-03-22",
+    "department_id": "dept_001",
+    "category": "personnel",
+    "amount": 5000,
+    "project_id": "",
+    "description": "测试成本",
+    "vendor": "",
+    "created_at": "2026-03-22T21:33:45.088691"
+  },
+  {
+    "id": "16aba792",
+    "date": "2026-03-22",
+    "department_id": "dept_001",
+    "category": "personnel",
+    "amount": 5000,
+    "project_id": "",
+    "description": "测试成本",
+    "vendor": "",
+    "created_at": "2026-03-22T21:36:22.120118"
+  },
+  {
+    "id": "1c95c1d6",
+    "date": "2026-03-22",
+    "department_id": "dept_001",
+    "category": "personnel",
+    "amount": 5000,
+    "project_id": "",
+    "description": "测试成本",
+    "vendor": "",
+    "created_at": "2026-03-22T21:36:27.678411"
+  }
+]

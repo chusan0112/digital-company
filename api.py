@@ -10,6 +10,11 @@ from core.approval_center import approve as approve_record, reject as reject_rec
 from workflows.weekly_review import generate_weekly_report
 from storage.repository import list_recent_decisions, list_recent_approvals
 
+# Import extended modules
+from domains.finance_extended import get_finance_service
+from domains.market_service import get_market_service
+from domains.satisfaction_service import get_satisfaction_service
+
 # Import auth module
 try:
     from auth.jwt_auth import (
@@ -640,5 +645,335 @@ def handle_request(path, method="GET", body=None, headers=None):
         # 软删除：将状态设为cancelled
         success = MeetingRepository.update(int(meeting_id), status="cancelled")
         return {"success": success, "message": "Meeting cancelled" if success else "Meeting not found"}
+    # GET /api/finance/summary - 财务汇总
+    if path == "/api/finance/summary" and method == "GET":
+        finance = get_finance_service()
+        return {"success": True, "summary": finance.get_financial_summary()}
+    
+    # POST /api/finance/budget - 创建预算
+    elif path == "/api/finance/budget" and method == "POST":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        budget = finance.create_budget(
+            name=data.get("name", ""),
+            department_id=data.get("department_id", ""),
+            fiscal_year=data.get("fiscal_year", 2026),
+            amount=data.get("amount", 0),
+            category=data.get("category", "general")
+        )
+        return {"success": True, "budget": budget.to_dict()}
+    
+    # POST /api/finance/budget/{id}/submit - 提交预算审批
+    elif path.startswith("/api/finance/budget/") and path.endswith("/submit") and method == "POST":
+        budget_id = path.replace("/api/finance/budget/", "").replace("/submit", "")
+        finance = get_finance_service()
+        success = finance.submit_budget(budget_id)
+        return {"success": success, "message": "Budget submitted" if success else "Budget not found"}
+    
+    # POST /api/finance/budget/{id}/approve - 审批预算
+    elif path.startswith("/api/finance/budget/") and path.endswith("/approve") and method == "POST":
+        budget_id = path.replace("/api/finance/budget/", "").replace("/approve", "")
+        data = json.loads(body) if body else {}
+        approved_by = data.get("approved_by", "admin")
+        finance = get_finance_service()
+        success = finance.approve_budget(budget_id, approved_by)
+        return {"success": success, "message": "Budget approved" if success else "Budget not found"}
+    
+    # GET /api/finance/budgets - 获取预算列表
+    elif path == "/api/finance/budgets" and method == "GET":
+        finance = get_finance_service()
+        budgets = finance.list_budgets(
+            department_id=body.get("department_id") if body else None,
+            status=body.get("status") if body else None,
+            fiscal_year=body.get("fiscal_year") if body else None
+        )
+        return {"success": True, "budgets": [b.to_dict() for b in budgets]}
+    
+    # POST /api/finance/cost - 添加成本记录
+    elif path == "/api/finance/cost" and method == "POST":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        cost = finance.add_cost(
+            date=data.get("date", datetime.now().strftime("%Y-%m-%d")),
+            department_id=data.get("department_id", ""),
+            category=data.get("category", "other"),
+            amount=data.get("amount", 0),
+            description=data.get("description", ""),
+            project_id=data.get("project_id", ""),
+            vendor=data.get("vendor", "")
+        )
+        return {"success": True, "cost": cost.to_dict()}
+    
+    # GET /api/finance/costs - 获取成本记录
+    elif path == "/api/finance/costs" and method == "GET":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        costs = finance.get_costs(
+            department_id=data.get("department_id"),
+            category=data.get("category"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date")
+        )
+        return {"success": True, "costs": [c.to_dict() for c in costs]}
+    
+    # GET /api/finance/costs/summary - 成本汇总
+    elif path == "/api/finance/costs/summary" and method == "GET":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        summary = finance.get_cost_summary(
+            department_id=data.get("department_id"),
+            start_date=data.get("start_date"),
+            end_date=data.get("end_date")
+        )
+        return {"success": True, "summary": summary}
+    
+    # POST /api/finance/income-statement - 生成利润表
+    elif path == "/api/finance/income-statement" and method == "POST":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        statement = finance.generate_income_statement(
+            period=data.get("period", "monthly"),
+            start_date=data.get("start_date", ""),
+            end_date=data.get("end_date", ""),
+            revenue=data.get("revenue", 0),
+            cost_of_goods_sold=data.get("cost_of_goods_sold", 0),
+            operating_expenses=data.get("operating_expenses", 0),
+            other_income=data.get("other_income", 0),
+            other_expenses=data.get("other_expenses", 0)
+        )
+        return {"success": True, "income_statement": statement.to_dict()}
+    
+    # GET /api/finance/income-statements - 获取利润表
+    elif path == "/api/finance/income-statements" and method == "GET":
+        finance = get_finance_service()
+        statements = finance.get_income_statements()
+        return {"success": True, "income_statements": [s.to_dict() for s in statements]}
+    
+    # POST /api/finance/balance-sheet - 生成资产负债表
+    elif path == "/api/finance/balance-sheet" and method == "POST":
+        data = json.loads(body) if body else {}
+        finance = get_finance_service()
+        sheet = finance.generate_balance_sheet(
+            period=data.get("period", "monthly"),
+            end_date=data.get("end_date", ""),
+            cash=data.get("cash", 0),
+            accounts_receivable=data.get("accounts_receivable", 0),
+            inventory=data.get("inventory", 0),
+            accounts_payable=data.get("accounts_payable", 0),
+            short_term_debt=data.get("short_term_debt", 0),
+            long_term_debt=data.get("long_term_debt", 0),
+            owner_equity=data.get("owner_equity", 0),
+            retained_earnings=data.get("retained_earnings", 0)
+        )
+        return {"success": True, "balance_sheet": sheet.to_dict()}
+    
+    # GET /api/finance/balance-sheets - 获取资产负债表
+    elif path == "/api/finance/balance-sheets" and method == "GET":
+        finance = get_finance_service()
+        sheets = finance.get_balance_sheets()
+        return {"success": True, "balance_sheets": [s.to_dict() for s in sheets]}
+    # POST /api/market/data - 采集市场数据
+    elif path == "/api/market/data" and method == "POST":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        market_data = market.collect_market_data(
+            market_name=data.get("market_name", ""),
+            industry=data.get("industry", "tech"),
+            total_market_size=data.get("total_market_size", 1000000)
+        )
+        return {"success": True, "market_data": market_data.to_dict()}
+    
+    # GET /api/market/data - 获取市场数据
+    elif path == "/api/market/data" and method == "GET":
+        market = get_market_service()
+        data = market.get_market_data()
+        return {"success": True, "market_data": [m.to_dict() for m in data]}
+    
+    # GET /api/market/overview - 市场概览
+    elif path == "/api/market/overview" and method == "GET":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        overview = market.get_market_overview(data.get("market_name", ""))
+        return {"success": True, "overview": overview}
+    
+    # POST /api/market/competitor - 添加竞争对手
+    elif path == "/api/market/competitor" and method == "POST":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        competitor = market.add_competitor(
+            name=data.get("name", ""),
+            industry=data.get("industry", ""),
+            market_share=data.get("market_share", 0),
+            revenue=data.get("revenue", 0),
+            strength_score=data.get("strength_score", 50),
+            weakness=data.get("weakness", []),
+            threat_level=data.get("threat_level", "medium"),
+            description=data.get("description", "")
+        )
+        return {"success": True, "competitor": competitor.to_dict()}
+    
+    # GET /api/market/competitors - 获取竞争对手列表
+    elif path == "/api/market/competitors" and method == "GET":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        competitors = market.list_competitors(
+            industry=data.get("industry"),
+            min_threat=data.get("min_threat")
+        )
+        return {"success": True, "competitors": [c.to_dict() for c in competitors]}
+    
+    # POST /api/market/share - 更新市场份额
+    elif path == "/api/market/share" and method == "POST":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        share = market.update_market_share(
+            market_name=data.get("market_name", ""),
+            company_name=data.get("company_name", ""),
+            period=data.get("period", datetime.now().strftime("%Y-%m")),
+            share=data.get("share", 0),
+            revenue=data.get("revenue", 0)
+        )
+        return {"success": True, "market_share": share.to_dict()}
+    
+    # GET /api/market/shares - 获取市场份额
+    elif path == "/api/market/shares" and method == "GET":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        shares = market.get_market_shares(
+            market_name=data.get("market_name"),
+            period=data.get("period")
+        )
+        return {"success": True, "market_shares": [s.to_dict() for s in shares]}
+    
+    # POST /api/market/simulate - 模拟市场份额变化
+    elif path == "/api/market/simulate" and method == "POST":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        result = market.simulate_market_share_change(
+            company_name=data.get("company_name", ""),
+            market_name=data.get("market_name", ""),
+            marketing_budget=data.get("marketing_budget", 0),
+            product_quality=data.get("product_quality", 50)
+        )
+        return {"success": True, "simulation": result}
+    
+    # POST /api/market/report - 生成市场报告
+    elif path == "/api/market/report" and method == "POST":
+        data = json.loads(body) if body else {}
+        market = get_market_service()
+        report = market.generate_market_report(
+            market_name=data.get("market_name", ""),
+            period=data.get("period", datetime.now().strftime("%Y-%m"))
+        )
+        return {"success": True, "report": report.to_dict()}
+    # POST /api/satisfaction/survey - 创建满意度调查
+    elif path == "/api/satisfaction/survey" and method == "POST":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        survey = satisfaction.create_survey(
+            title=data.get("title", ""),
+            department_id=data.get("department_id", ""),
+            start_date=data.get("start_date", ""),
+            end_date=data.get("end_date", "")
+        )
+        return {"success": True, "survey": survey.to_dict()}
+    
+    # POST /api/satisfaction/survey/{id}/activate - 激活问卷
+    elif path.startswith("/api/satisfaction/survey/") and path.endswith("/activate") and method == "POST":
+        survey_id = path.replace("/api/satisfaction/survey/", "").replace("/activate", "")
+        satisfaction = get_satisfaction_service()
+        success = satisfaction.activate_survey(survey_id)
+        return {"success": success, "message": "Survey activated" if success else "Survey not found"}
+    
+    # POST /api/satisfaction/survey/{id}/close - 关闭问卷
+    elif path.startswith("/api/satisfaction/survey/") and path.endswith("/close") and method == "POST":
+        survey_id = path.replace("/api/satisfaction/survey/", "").replace("/close", "")
+        satisfaction = get_satisfaction_service()
+        success = satisfaction.close_survey(survey_id)
+        return {"success": success, "message": "Survey closed" if success else "Survey not found"}
+    
+    # GET /api/satisfaction/surveys - 获取问卷列表
+    elif path == "/api/satisfaction/surveys" and method == "GET":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        surveys = satisfaction.list_surveys(
+            department_id=data.get("department_id"),
+            status=data.get("status")
+        )
+        return {"success": True, "surveys": [s.to_dict() for s in surveys]}
+    
+    # POST /api/satisfaction/response - 提交问卷响应
+    elif path == "/api/satisfaction/response" and method == "POST":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        try:
+            response = satisfaction.submit_response(
+                survey_id=data.get("survey_id", ""),
+                employee_id=data.get("employee_id", ""),
+                responses=data.get("responses", {}),
+                comments=data.get("comments", "")
+            )
+            return {"success": True, "response": response.to_dict()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # GET /api/satisfaction/responses - 获取问卷响应
+    elif path == "/api/satisfaction/responses" and method == "GET":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        responses = satisfaction.get_responses(
+            survey_id=data.get("survey_id"),
+            employee_id=data.get("employee_id")
+        )
+        return {"success": True, "responses": [r.to_dict() for r in responses]}
+    
+    # POST /api/satisfaction/metrics - 计算满意度指标
+    elif path == "/api/satisfaction/metrics" and method == "POST":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        try:
+            metrics = satisfaction.calculate_metrics(
+                survey_id=data.get("survey_id", ""),
+                department_id=data.get("department_id", "")
+            )
+            return {"success": True, "metrics": metrics.to_dict()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # GET /api/satisfaction/metrics - 获取满意度指标历史
+    elif path == "/api/satisfaction/metrics" and method == "GET":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        metrics = satisfaction.get_metrics_history(department_id=data.get("department_id"))
+        return {"success": True, "metrics": [m.to_dict() for m in metrics]}
+    
+    # POST /api/satisfaction/insights - 生成满意度洞察
+    elif path == "/api/satisfaction/insights" and method == "POST":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        try:
+            insight = satisfaction.generate_insights(
+                department_id=data.get("department_id", "")
+            )
+            return {"success": True, "insight": insight.to_dict()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    # GET /api/satisfaction/overview - 满意度概览
+    elif path == "/api/satisfaction/overview" and method == "GET":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        overview = satisfaction.get_satisfaction_overview(department_id=data.get("department_id"))
+        return {"success": True, "overview": overview}
+    
+    # POST /api/satisfaction/simulate - 模拟满意度数据
+    elif path == "/api/satisfaction/simulate" and method == "POST":
+        data = json.loads(body) if body else {}
+        satisfaction = get_satisfaction_service()
+        result = satisfaction.simulate_satisfaction_data(
+            department_id=data.get("department_id", ""),
+            employee_count=data.get("employee_count", 10)
+        )
+        return {"success": True, "simulation": result}
     
     return {"error": "Not found"}

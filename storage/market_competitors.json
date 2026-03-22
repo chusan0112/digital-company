@@ -1,0 +1,119 @@
+[
+  {
+    "id": "928ec2f3",
+    "name": "竞争对手A",
+    "industry": "tech",
+    "market_share": 25,
+    "revenue": 1000000,
+    "strength_score": 80,
+    "weakness": [
+      "价格高",
+      "服务差"
+    ],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:31:24.659574"
+  },
+  {
+    "id": "cd126bd3",
+    "name": "竞争对手A",
+    "industry": "tech",
+    "market_share": 25,
+    "revenue": 1000000,
+    "strength_score": 80,
+    "weakness": [
+      "价格高",
+      "服务差"
+    ],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:31:39.035641"
+  },
+  {
+    "id": "4c6036a7",
+    "name": "竞争对手A",
+    "industry": "tech",
+    "market_share": 25,
+    "revenue": 1000000,
+    "strength_score": 80,
+    "weakness": [
+      "价格高",
+      "服务差"
+    ],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:31:55.569111"
+  },
+  {
+    "id": "23945a74",
+    "name": "测试竞争公司",
+    "industry": "tech",
+    "market_share": 15,
+    "revenue": 500000,
+    "strength_score": 70,
+    "weakness": [],
+    "threat_level": "medium",
+    "description": "",
+    "last_updated": "2026-03-22T21:33:45.162675"
+  },
+  {
+    "id": "85e7afa8",
+    "name": "API竞争公司",
+    "industry": "tech",
+    "market_share": 20,
+    "revenue": 800000,
+    "strength_score": 75,
+    "weakness": [],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:33:45.284632"
+  },
+  {
+    "id": "47a8431e",
+    "name": "测试竞争公司",
+    "industry": "tech",
+    "market_share": 15,
+    "revenue": 500000,
+    "strength_score": 70,
+    "weakness": [],
+    "threat_level": "medium",
+    "description": "",
+    "last_updated": "2026-03-22T21:36:22.144639"
+  },
+  {
+    "id": "ad2764d8",
+    "name": "API竞争公司",
+    "industry": "tech",
+    "market_share": 20,
+    "revenue": 800000,
+    "strength_score": 75,
+    "weakness": [],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:36:22.341545"
+  },
+  {
+    "id": "7bb69d04",
+    "name": "测试竞争公司",
+    "industry": "tech",
+    "market_share": 15,
+    "revenue": 500000,
+    "strength_score": 70,
+    "weakness": [],
+    "threat_level": "medium",
+    "description": "",
+    "last_updated": "2026-03-22T21:36:27.706214"
+  },
+  {
+    "id": "cedd5eed",
+    "name": "API竞争公司",
+    "industry": "tech",
+    "market_share": 20,
+    "revenue": 800000,
+    "strength_score": 75,
+    "weakness": [],
+    "threat_level": "high",
+    "description": "",
+    "last_updated": "2026-03-22T21:36:27.840326"
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "id": "bd48246c",
+    "market_name": "测试市场",
+    "company_name": "金库集团",
+    "period": "2026-03",
+    "share": 10.5,
+    "revenue": 100000,
+    "rank": 1,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:33:45.166580"
+  },
+  {
+    "id": "5f0048bf",
+    "market_name": "模拟市场",
+    "company_name": "金库集团",
+    "period": "2026-02",
+    "share": 10,
+    "revenue": 100000,
+    "rank": 1,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:33:45.171421"
+  },
+  {
+    "id": "ed7b282c",
+    "market_name": "测试市场",
+    "company_name": "金库集团",
+    "period": "2026-03",
+    "share": 10.5,
+    "revenue": 100000,
+    "rank": 2,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:36:22.147691"
+  },
+  {
+    "id": "0c6cdab0",
+    "market_name": "模拟市场",
+    "company_name": "金库集团",
+    "period": "2026-02",
+    "share": 10,
+    "revenue": 100000,
+    "rank": 2,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:36:22.151754"
+  },
+  {
+    "id": "ca86c0d7",
+    "market_name": "测试市场",
+    "company_name": "金库集团",
+    "period": "2026-03",
+    "share": 10.5,
+    "revenue": 100000,
+    "rank": 3,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:36:27.709891"
+  },
+  {
+    "id": "02e7fdd2",
+    "market_name": "模拟市场",
+    "company_name": "金库集团",
+    "period": "2026-02",
+    "share": 10,
+    "revenue": 100000,
+    "rank": 3,
+    "trend": "stable",
+    "recorded_at": "2026-03-22T21:36:27.714289"
+  }
+]

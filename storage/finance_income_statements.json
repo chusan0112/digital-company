@@ -1,0 +1,47 @@
+[
+  {
+    "id": "cdbac27b",
+    "period": "monthly",
+    "start_date": "2026-03-01",
+    "end_date": "2026-03-31",
+    "revenue": 100000,
+    "cost_of_goods_sold": 40000,
+    "gross_profit": 60000,
+    "operating_expenses": 20000,
+    "operating_income": 40000,
+    "other_income": 1000,
+    "other_expenses": 500,
+    "net_income": 40500,
+    "created_at": "2026-03-22T21:33:45.093739"
+  },
+  {
+    "id": "d2c99f56",
+    "period": "monthly",
+    "start_date": "2026-03-01",
+    "end_date": "2026-03-31",
+    "revenue": 100000,
+    "cost_of_goods_sold": 40000,
+    "gross_profit": 60000,
+    "operating_expenses": 20000,
+    "operating_income": 40000,
+    "other_income": 1000,
+    "other_expenses": 500,
+    "net_income": 40500,
+    "created_at": "2026-03-22T21:36:22.125779"
+  },
+  {
+    "id": "8f262393",
+    "period": "monthly",
+    "start_date": "2026-03-01",
+    "end_date": "2026-03-31",
+    "revenue": 100000,
+    "cost_of_goods_sold": 40000,
+    "gross_profit": 60000,
+    "operating_expenses": 20000,
+    "operating_income": 40000,
+    "other_income": 1000,
+    "other_expenses": 500,
+    "net_income": 40500,
+    "created_at": "2026-03-22T21:36:27.684624"
+  }
+]
