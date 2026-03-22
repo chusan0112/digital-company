@@ -15,17 +15,12 @@ from domains.finance_extended import get_finance_service
 from domains.market_service import get_market_service
 from domains.satisfaction_service import get_satisfaction_service
 
-# Import auth module
+# Import OpenClaw integration
 try:
-    from auth.jwt_auth import (
-        create_token, verify_token, authenticate_user,
-        blacklist_token, init_default_users
-    )
-    # Initialize default users
-    init_default_users()
-    AUTH_ENABLED = True
+    from integrations.openclaw_client import get_openclaw_client
+    OPENCLAW_ENABLED = True
 except ImportError:
-    AUTH_ENABLED = False
+    OPENCLAW_ENABLED = False
 
 # Token storage for API-based auth (simple in-memory)
 _token_store = {}
@@ -188,6 +183,164 @@ def handle_request(path, method="GET", body=None, headers=None):
             data.get("status", "idle")
         )
         return {"success": True}
+    
+    # ============== OpenClaw集成接口 ==============
+    
+    # POST /api/openclaw/enable - 启用/禁用OpenClaw集成
+    elif path == "/api/openclaw/enable" and method == "POST":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        return {"success": True, "enabled": True}
+    
+    # POST /api/employee/recruit - 招聘AI员工（自动创建OpenClaw Agent）
+    elif path == "/api/employee/recruit" and method == "POST":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        data = json.loads(body) if body else {}
+        name = data.get("name", "").strip()
+        role = data.get("role", "").strip()
+        department_id = data.get("department_id", "").strip()
+        skills = data.get("skills", [])
+        
+        if not name:
+            return {"success": False, "error": "name_required"}
+        if not role:
+            return {"success": False, "error": "role_required"}
+        
+        # 创建员工（同时创建OpenClaw Agent）
+        emp = company.hire_employee(
+            name=name,
+            role=role,
+            department_id=department_id,
+            skills=skills,
+            create_openclaw_agent=True
+        )
+        
+        return {
+            "success": True,
+            "employee": emp.to_dict(),
+            "openclaw_agent_id": emp.openclaw_agent_id,
+            "message": f"员工 {name} 已入职，OpenClaw Agent 已创建"
+        }
+    
+    # GET /api/employee/{id}/agent - 获取员工对应的OpenClaw Agent
+    elif path.startswith("/api/employee/") and path.endswith("/agent") and method == "GET":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        emp_id = path.replace("/api/employee/", "").replace("/agent", "")
+        agent_info = company.get_employee_agent(emp_id)
+        
+        if not agent_info:
+            return {"success": False, "error": "agent_not_found"}
+        
+        return {"success": True, "agent": agent_info.to_dict()}
+    
+    # POST /api/employee/{id}/task - 给员工分配任务（通过OpenClaw执行）
+    elif path.startswith("/api/employee/") and path.endswith("/task") and method == "POST":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        emp_id = path.replace("/api/employee/", "").replace("/task", "")
+        data = json.loads(body) if body else {}
+        task_description = data.get("description", "").strip()
+        
+        if not task_description:
+            return {"success": False, "error": "task_description_required"}
+        
+        try:
+            task_id = company.dispatch_task_to_employee(emp_id, task_description)
+            return {
+                "success": True,
+                "task_id": task_id,
+                "message": "任务已分配给员工"
+            }
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+        except RuntimeError as e:
+            return {"success": False, "error": str(e)}
+    
+    # POST /api/employee/{id}/sync - 同步OpenClaw Agent状态到员工
+    elif path.startswith("/api/employee/") and path.endswith("/sync") and method == "POST":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        emp_id = path.replace("/api/employee/", "").replace("/sync", "")
+        company.sync_agent_status(emp_id=emp_id)
+        
+        emp = company.get_employee(emp_id)
+        return {
+            "success": True,
+            "employee_status": emp.status if emp else "unknown"
+        }
+    
+    # GET /api/openclaw/agents - 列出所有OpenClaw Agents
+    elif path == "/api/openclaw/agents" and method == "GET":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        client = get_openclaw_client()
+        agents = client.list_agents()
+        
+        return {
+            "success": True,
+            "agents": [a.to_dict() for a in agents]
+        }
+    
+    # GET /api/openclaw/tasks - 列出所有任务
+    elif path == "/api/openclaw/tasks" and method == "GET":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        client = get_openclaw_client()
+        data = json.loads(body) if body else {}
+        
+        tasks = client.list_tasks(
+            agent_id=data.get("agent_id"),
+            status=data.get("status")
+        )
+        
+        return {
+            "success": True,
+            "tasks": [t.to_dict() for t in tasks]
+        }
+    
+    # GET /api/openclaw/task/{id} - 获取任务状态
+    elif path.startswith("/api/openclaw/task/") and method == "GET":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        task_id = path.replace("/api/openclaw/task/", "")
+        client = get_openclaw_client()
+        task_result = client.get_task_status(task_id)
+        
+        if not task_result:
+            return {"success": False, "error": "task_not_found"}
+        
+        return {"success": True, "task": task_result.to_dict()}
+    
+    # POST /api/openclaw/webhook/register - 注册Webhook回调
+    elif path == "/api/openclaw/webhook/register" and method == "POST":
+        if not OPENCLAW_ENABLED:
+            return {"success": False, "error": "OpenClaw integration not available"}
+        
+        data = json.loads(body) if body else {}
+        callback_url = data.get("callback_url", "").strip()
+        
+        if not callback_url:
+            return {"success": False, "error": "callback_url_required"}
+        
+        # 注册webhook（这里简单存储URL，实际实现需要web服务器支持）
+        if not hasattr(company, '_webhooks'):
+            company._webhooks = []
+        company._webhooks.append(callback_url)
+        
+        return {
+            "success": True,
+            "message": "Webhook已注册",
+            "callback_url": callback_url
+        }
     
     # 创建项目
     elif path == "/api/project" and method == "POST":

@@ -9,6 +9,14 @@ import uuid
 import json
 import os
 
+# OpenClaw集成
+try:
+    from integrations.openclaw_client import get_openclaw_client, AgentInfo
+    OPENCLAW_ENABLED = True
+except ImportError:
+    OPENCLAW_ENABLED = False
+    AgentInfo = None
+
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "company_data.json")
 
@@ -50,6 +58,7 @@ class Employee:
     hire_date: str = ""
     salary: float = 0
     performance: float = 100
+    openclaw_agent_id: str = ""  # OpenClaw子Agent ID
     
     def __post_init__(self):
         if not self.hire_date:
@@ -135,6 +144,14 @@ class Company:
         
         self.budget = 1000
         self.spent = 0
+        
+        # OpenClaw集成
+        self.openclaw_client = None
+        if OPENCLAW_ENABLED:
+            try:
+                self.openclaw_client = get_openclaw_client()
+            except Exception as e:
+                print(f"OpenClaw client init warning: {e}")
         
         # 加载或初始化
         self.load()
@@ -224,7 +241,19 @@ class Company:
     # ---------- 员工管理 ----------
     
     def hire_employee(self, name: str, role: str, department_id: str, 
-                     skills: List[str] = None, salary: float = 0) -> Employee:
+                     skills: List[str] = None, salary: float = 0,
+                     create_openclaw_agent: bool = True) -> Employee:
+        """
+        雇佣员工
+        
+        Args:
+            name: 员工姓名
+            role: 职位
+            department_id: 部门ID
+            skills: 技能列表
+            salary: 薪资
+            create_openclaw_agent: 是否在OpenClaw中创建对应Agent
+        """
         emp = Employee(
             id=str(uuid.uuid4())[:8],
             name=name,
@@ -233,11 +262,35 @@ class Company:
             skills=skills or [],
             salary=salary
         )
+        
+        # 如果启用OpenClaw，创建对应的Agent
+        if create_openclaw_agent and self.openclaw_client and OPENCLAW_ENABLED:
+            try:
+                agent = self.openclaw_client.sync_employee_to_agent(
+                    employee_id=emp.id,
+                    name=name,
+                    role=role,
+                    skills=skills or []
+                )
+                emp.openclaw_agent_id = agent.agent_id
+            except Exception as e:
+                print(f"Failed to create OpenClaw agent: {e}")
+        
         self.employees.append(emp)
         self.save()
         return emp
     
     def fire_employee(self, emp_id: str) -> bool:
+        """解雇员工"""
+        emp = self.get_employee(emp_id)
+        
+        # 如果有OpenClaw Agent，一并删除
+        if emp and emp.openclaw_agent_id and self.openclaw_client:
+            try:
+                self.openclaw_client.delete_agent(emp.openclaw_agent_id)
+            except Exception as e:
+                print(f"Failed to delete OpenClaw agent: {e}")
+        
         for i, emp in enumerate(self.employees):
             if emp.id == emp_id:
                 self.employees.pop(i)
@@ -261,6 +314,105 @@ class Company:
         if emp:
             emp.status = status
             self.save()
+    
+    # ---------- OpenClaw集成 ----------
+    
+    def dispatch_task_to_employee(self, emp_id: str, task_description: str) -> str:
+        """
+        分配任务给员工（通过OpenClaw Agent）
+        
+        Args:
+            emp_id: 员工ID
+            task_description: 任务描述
+        
+        Returns:
+            task_id: 任务ID
+        """
+        emp = self.get_employee(emp_id)
+        if not emp:
+            raise ValueError(f"Employee {emp_id} not found")
+        
+        if not emp.openclaw_agent_id:
+            raise ValueError(f"Employee {emp_id} has no OpenClaw agent")
+        
+        if not self.openclaw_client:
+            raise RuntimeError("OpenClaw client not initialized")
+        
+        # 创建任务
+        task = self.create_task(
+            name=task_description[:50],
+            description=task_description,
+            assignee_id=emp_id
+        )
+        
+        # 通过OpenClaw执行任务
+        def task_callback(result):
+            """任务完成回调"""
+            if result.status == "completed":
+                self.complete_task(task.id)
+            # 同步Agent状态到员工
+            self.sync_agent_status(emp.openclaw_agent_id)
+        
+        task_id = self.openclaw_client.dispatch_task(
+            agent_id=emp.openclaw_agent_id,
+            task=task_description,
+            callback=task_callback
+        )
+        
+        # 更新员工状态
+        self.update_employee_status(emp_id, "working")
+        
+        return task.id
+    
+    def sync_agent_status(self, agent_id: str = None, emp_id: str = None):
+        """
+        同步OpenClaw Agent状态到员工
+        
+        Args:
+            agent_id: Agent ID (二选一)
+            emp_id: 员工ID (二选一)
+        """
+        if not self.openclaw_client:
+            return
+        
+        # 根据Agent ID查找员工
+        if agent_id:
+            for emp in self.employees:
+                if emp.openclaw_agent_id == agent_id:
+                    emp_id = emp.id
+                    break
+        
+        if not emp_id:
+            return
+        
+        emp = self.get_employee(emp_id)
+        if not emp or not emp.openclaw_agent_id:
+            return
+        
+        # 获取Agent状态
+        agent = self.openclaw_client.get_agent(emp.openclaw_agent_id)
+        if agent:
+            status_map = {
+                "created": "idle",
+                "running": "working",
+                "idle": "idle",
+                "working": "working",
+                "completed": "idle",
+                "failed": "idle"
+            }
+            emp.status = status_map.get(agent.status, "idle")
+            self.save()
+    
+    def get_employee_agent(self, emp_id: str) -> Optional[AgentInfo]:
+        """获取员工的OpenClaw Agent信息"""
+        emp = self.get_employee(emp_id)
+        if not emp or not emp.openclaw_agent_id:
+            return None
+        
+        if not self.openclaw_client:
+            return None
+        
+        return self.openclaw_client.get_agent(emp.openclaw_agent_id)
     
     # ---------- 项目管理 ----------
     
