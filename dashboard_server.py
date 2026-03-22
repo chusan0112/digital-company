@@ -87,6 +87,32 @@ def api_realtime_task():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ============== 会议发言API ==============
+
+@app.route('/api/realtime/meeting/speak', methods=['POST'])
+def api_meeting_speak():
+    """让员工发言"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "error": "Invalid request body"}), 400
+    
+    agent_id = data.get("agent_id")
+    topic = data.get("topic")
+    
+    if not agent_id or not topic:
+        return jsonify({"success": False, "error": "agent_id and topic required"}), 400
+    
+    try:
+        speech = realtime.request_speech(agent_id, topic)
+        return jsonify({
+            "success": True,
+            "agent_id": agent_id,
+            "speech": speech
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============== SSE - Server Sent Events ==============
 
 @app.route('/api/realtime/stream')

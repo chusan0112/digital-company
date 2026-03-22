@@ -269,6 +269,191 @@
             margin-bottom: 12px;
         }
         
+        /* Meeting Section */
+        .meeting-section {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .meeting-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .meeting-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .meeting-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .meeting-btn.start {
+            background: var(--accent-green);
+            color: white;
+        }
+        
+        .meeting-btn.start:hover {
+            background: #00a06d;
+        }
+        
+        .meeting-btn.end {
+            background: var(--accent-red);
+            color: white;
+        }
+        
+        .meeting-btn.end:hover {
+            background: #e01d29;
+        }
+        
+        .meeting-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .meeting-topic {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        
+        .meeting-topic:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        /* Speaking Queue */
+        .speaking-queue {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+        
+        .speaker-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .speaker-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .speaker-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .speaker-name {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .speaker-status {
+            font-size: 11px;
+            color: var(--accent-green);
+        }
+        
+        .speaker-status.waiting {
+            color: var(--text-secondary);
+        }
+        
+        .speaker-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--accent-blue);
+            color: white;
+            transition: background 0.2s;
+        }
+        
+        .speaker-btn:hover {
+            background: #1a8cd8;
+        }
+        
+        .speaker-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Meeting Minutes */
+        .meeting-minutes {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .minute-item {
+            padding: 12px;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-purple);
+        }
+        
+        .minute-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .minute-speaker {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-purple);
+        }
+        
+        .minute-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .minute-content {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .no-meeting {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+        
         .task-form {
             display: flex;
             flex-direction: column;
@@ -495,6 +680,20 @@
             
             <!-- Task Panel -->
             <div class="task-panel">
+                <!-- Meeting Section -->
+                <div class="meeting-section">
+                    <div class="meeting-title">🎙️ 会议发言</div>
+                    <input type="text" class="meeting-topic" id="meetingTopic" placeholder="输入会议主题...">
+                    <div class="meeting-controls">
+                        <button class="meeting-btn start" id="startMeetingBtn">开始会议</button>
+                        <button class="meeting-btn end" id="endMeetingBtn" disabled>结束会议</button>
+                    </div>
+                    <div class="speaking-queue" id="speakingQueue">
+                        <div class="no-meeting">请先开始会议</div>
+                    </div>
+                    <div class="meeting-minutes" id="meetingMinutes"></div>
+                </div>
+                
                 <div class="task-panel-header">
                     <div class="task-panel-title">📋 任务分配</div>
                     <form class="task-form" id="taskForm">
@@ -532,8 +731,20 @@
             taskForm: document.getElementById('taskForm'),
             taskInput: document.getElementById('taskInput'),
             submitBtn: document.getElementById('submitBtn'),
-            activityList: document.getElementById('activityList')
+            activityList: document.getElementById('activityList'),
+            // Meeting elements
+            meetingTopic: document.getElementById('meetingTopic'),
+            startMeetingBtn: document.getElementById('startMeetingBtn'),
+            endMeetingBtn: document.getElementById('endMeetingBtn'),
+            speakingQueue: document.getElementById('speakingQueue'),
+            meetingMinutes: document.getElementById('meetingMinutes')
         };
+        
+        // 会议状态
+        let meetingActive = false;
+        let currentMeetingTopic = '';
+        let speakingAgents = [];
+        let meetingMinutesList = [];
         
         // 格式化时间
         function formatTime(isoString) {
@@ -736,6 +947,165 @@
             
             sendTask(agentId, task);
         });
+        
+        // ============== 会议功能 ==============
+        
+        // 渲染发言队列
+        function renderSpeakingQueue() {
+            if (!meetingActive) {
+                elements.speakingQueue.innerHTML = '<div class="no-meeting">请先开始会议</div>';
+                return;
+            }
+            
+            if (speakingAgents.length === 0) {
+                elements.speakingQueue.innerHTML = '<div class="no-meeting">暂无员工发言，点击按钮邀请发言</div>';
+                return;
+            }
+            
+            let html = '';
+            speakingAgents.forEach((agent, index) => {
+                const avatarChar = agent.name.charAt(1) || '?';
+                html += `
+                    <div class="speaker-item">
+                        <div class="speaker-avatar">${avatarChar}</div>
+                        <div class="speaker-info">
+                            <div class="speaker-name">${agent.name}</div>
+                            <div class="speaker-status waiting">等待发言...</div>
+                        </div>
+                        <button class="speaker-btn" onclick="requestSpeech('${agent.agent_id}')">邀请发言</button>
+                    </div>
+                `;
+            });
+            elements.speakingQueue.innerHTML = html;
+        }
+        
+        // 渲染会议纪要
+        function renderMeetingMinutes() {
+            if (meetingMinutesList.length === 0) {
+                elements.meetingMinutes.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            meetingMinutesList.forEach(minute => {
+                html += `
+                    <div class="minute-item">
+                        <div class="minute-header">
+                            <span class="minute-speaker">${minute.speaker}</span>
+                            <span class="minute-time">${minute.time}</span>
+                        </div>
+                        <div class="minute-content">${minute.content}</div>
+                    </div>
+                `;
+            });
+            elements.meetingMinutes.innerHTML = html;
+        }
+        
+        // 开始会议
+        async function startMeeting() {
+            const topic = elements.meetingTopic.value.trim();
+            if (!topic) {
+                alert('请输入会议主题');
+                return;
+            }
+            
+            currentMeetingTopic = topic;
+            meetingActive = true;
+            speakingAgents = [];
+            meetingMinutesList = [];
+            
+            // 获取所有员工加入会议
+            if (dashboardData && dashboardData.employees) {
+                speakingAgents = [...dashboardData.employees];
+            }
+            
+            // 更新UI
+            elements.startMeetingBtn.disabled = true;
+            elements.endMeetingBtn.disabled = false;
+            elements.meetingTopic.disabled = true;
+            
+            // 添加会议开始记录
+            const now = new Date().toLocaleTimeString('zh-CN');
+            meetingMinutesList.push({
+                speaker: '系统',
+                time: now,
+                content: `会议开始：${topic}`
+            });
+            
+            renderSpeakingQueue();
+            renderMeetingMinutes();
+            addActivity('系统', `会议开始：${topic}`);
+        }
+        
+        // 结束会议
+        function endMeeting() {
+            meetingActive = false;
+            
+            // 更新UI
+            elements.startMeetingBtn.disabled = false;
+            elements.endMeetingBtn.disabled = true;
+            elements.meetingTopic.disabled = false;
+            
+            // 添加会议结束记录
+            const now = new Date().toLocaleTimeString('zh-CN');
+            meetingMinutesList.push({
+                speaker: '系统',
+                time: now,
+                content: '会议结束'
+            });
+            
+            renderSpeakingQueue();
+            renderMeetingMinutes();
+            addActivity('系统', `会议结束：${currentMeetingTopic}`);
+            
+            currentMeetingTopic = '';
+            speakingAgents = [];
+        }
+        
+        // 邀请员工发言
+        async function requestSpeech(agentId) {
+            if (!meetingActive || !currentMeetingTopic) return;
+            
+            // 找到员工信息
+            const agent = speakingAgents.find(a => a.agent_id === agentId);
+            if (!agent) return;
+            
+            // 调用后端API让员工发言
+            try {
+                const response = await fetch('/api/realtime/meeting/speak', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        topic: currentMeetingTopic
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 添加发言到会议纪要
+                    const now = new Date().toLocaleTimeString('zh-CN');
+                    meetingMinutesList.push({
+                        speaker: agent.name,
+                        time: now,
+                        content: result.speech || '（沉默...）'
+                    });
+                    
+                    renderMeetingMinutes();
+                    addActivity(agent.name, result.speech ? result.speech.substring(0, 50) + '...' : '（无回复）');
+                }
+                
+            } catch (error) {
+                console.error('Speech error:', error);
+            }
+        }
+        
+        // 会议按钮事件
+        elements.startMeetingBtn.addEventListener('click', startMeeting);
+        elements.endMeetingBtn.addEventListener('click', endMeeting);
         
         // SSE连接
         function connectSSE() {

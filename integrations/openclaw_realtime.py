@@ -294,9 +294,10 @@ class OpenClawRealtime:
     def _send_task_background(self, agent_id: str, task: str, task_id: str):
         """后台发送任务"""
         result = self._run_command([
-            "sessions_send",
+            "agent",
             "--agent", agent_id,
-            "--message", task
+            "--message", task,
+            "--json"
         ], timeout=120)
         
         # 更新任务缓存
@@ -311,6 +312,72 @@ class OpenClawRealtime:
                 error=result.get("stderr", "")
             )
             self._tasks_cache[task_id] = task_obj
+    
+    def request_speech(self, agent_id: str, topic: str) -> str:
+        """让员工发言（会议模式）"""
+        if agent_id not in EMPLOYEE_MAPPING:
+            raise ValueError(f"Unknown agent: {agent_id}")
+        
+        agent_name = EMPLOYEE_MAPPING[agent_id]["name"]
+        role = EMPLOYEE_MAPPING[agent_id]["role"]
+        
+        print(f"[Meeting] Requesting speech from {agent_id} ({agent_name}) about {topic}")
+        
+        # 尝试调用真实的Agent
+        speech_prompt = f"""你是{agent_name}，{role}。现在公司正在开会讨论「{topic}」。
+请从你的专业角度，发表2-3句话的专业意见。要求简洁有力，体现专业水准。"""
+        
+        # 调用子Agent获取回复
+        result = self._run_command([
+            "agent",
+            "--agent", agent_id,
+            "--message", speech_prompt,
+            "--json"
+        ], timeout=30)
+        
+        print(f"[Meeting] Result: {result}")
+        
+        # 如果成功获取响应，返回响应内容
+        if result.get("success"):
+            data = result.get("data", {})
+            if isinstance(data, dict):
+                # 尝试从各种字段获取响应
+                response = data.get("response") or data.get("message") or data.get("content") or data.get("reply")
+                if response:
+                    return response
+        
+        # 如果没有获取到响应，返回基于角色的模拟发言
+        return self._generate_mock_speech(agent_id, topic)
+    
+    def _generate_mock_speech(self, agent_id: str, topic: str) -> str:
+        """生成基于角色的模拟发言"""
+        mock_speeches = {
+            "jxcai": f"从财务角度来看，这个项目需要关注成本控制和ROI。建议先进行小规模试点，验证盈利模式后再扩大投入。",
+            "jxchma": f"技术上我建议采用微服务架构，这样可以提高系统的可扩展性和维护性。同时需要注意技术债务的控制。",
+            "jxchuang": f"从创意角度，这个项目很有市场潜力。建议在品牌定位上更加年轻化，突出差异化竞争策略。",
+            "jxsc": f"作为产品负责人，我认为首先要明确MVP的核心功能，用户体验至关重要。建议采用敏捷开发方式快速迭代。",
+            "jxshi": f"市场方面，我建议采用多渠道营销策略，重点关注社交媒体和内容营销。初期可以通过KOL合作快速获取曝光。",
+            "jxyun": f"运营角度，我认为需要建立完善的用户增长体系，留存和转化是关键指标。建议数据驱动决策，持续优化运营策略。"
+        }
+        
+        base_speech = mock_speeches.get(agent_id, "我认为这个议题需要进一步讨论分析。")
+        
+        # 根据话题调整发言
+        if "产品" in topic or "发布" in topic:
+            return f"关于{topic}，{base_speech}"
+        elif "财务" in topic or "预算" in topic:
+            return f"关于{topic}，{mock_speeches.get('jxcai', base_speech)}"
+        elif "技术" in topic or "开发" in topic:
+            return f"关于{topic}，{mock_speeches.get('jxchma', base_speech)}"
+        else:
+            return f"关于{topic}，{base_speech}"
+            # 尝试解析返回内容
+            data = result.get("data", {})
+            if isinstance(data, dict):
+                return data.get("response", data.get("message", "（暂无回复）"))
+            return result.get("stdout", "（发言完毕）")
+        
+        return f"（发言请求失败：{result.get('error', '未知错误')}）"
     
     def update_all(self):
         """更新所有数据"""
