@@ -448,6 +448,12 @@ class OpenClawRealtime:
         # 获取真实项目数据
         projects_data = self._get_projects_data()
         
+        # 获取真实任务数据
+        tasks_data = self._get_tasks_data()
+        
+        # 生成实时动态
+        recent_activity = self._get_recent_activity()
+        
         return {
             "company_name": "金库集团",
             "departments": 5,
@@ -455,12 +461,9 @@ class OpenClawRealtime:
             "employees_by_status": status_counts,
             "employees": employees,
             "projects": projects_data,
-            "tasks": {
-                "total": len(self._tasks_cache),
-                "pending": len([t for t in self._tasks_cache.values() if t.status == "pending"]),
-                "running": len([t for t in self._tasks_cache.values() if t.status == "running"]),
-                "completed": len([t for t in self._tasks_cache.values() if t.status == "completed"])
-            },
+            "tasks": tasks_data["summary"],
+            "task_kanban": tasks_data["kanban"],
+            "recent_activity": recent_activity,
             "financial": {
                 "budget": 1000,
                 "spent": 0,
@@ -468,6 +471,105 @@ class OpenClawRealtime:
             },
             "last_update": self._last_update.isoformat() if self._last_update else ""
         }
+    
+    def _get_tasks_data(self) -> dict:
+        """从storage/projects获取真实任务数据"""
+        projects_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            "storage", 
+            "projects"
+        )
+        
+        all_tasks = []
+        kanban = {
+            "pending": [],
+            "in_progress": [],
+            "completed": [],
+            "failed": []
+        }
+        
+        if os.path.exists(projects_path):
+            try:
+                for project_dir in os.listdir(projects_path):
+                    project_file = os.path.join(projects_path, project_dir, "info.json")
+                    project_name = project_dir
+                    if os.path.exists(project_file):
+                        with open(project_file, 'r', encoding='utf-8') as f:
+                            project_info = json.load(f)
+                            project_name = project_info.get("name", project_dir)
+                    
+                    tasks_dir = os.path.join(projects_path, project_dir, "tasks")
+                    if os.path.exists(tasks_dir):
+                        for task_file in os.listdir(tasks_dir):
+                            if task_file.endswith('.json'):
+                                task_path = os.path.join(tasks_dir, task_file)
+                                with open(task_path, 'r', encoding='utf-8') as f:
+                                    task = json.load(f)
+                                    task["project"] = project_name
+                                    all_tasks.append(task)
+                                    
+                                    status = task.get("status", "pending")
+                                    if status == "pending":
+                                        kanban["pending"].append(task)
+                                    elif status in ["in_progress", "running"]:
+                                        kanban["in_progress"].append(task)
+                                    elif status == "completed":
+                                        kanban["completed"].append(task)
+                                    elif status == "failed":
+                                        kanban["failed"].append(task)
+            except Exception as e:
+                print(f"Error reading tasks: {e}")
+        
+        return {
+            "summary": {
+                "total": len(all_tasks),
+                "pending": len(kanban["pending"]),
+                "in_progress": len(kanban["in_progress"]),
+                "completed": len(kanban["completed"]),
+                "failed": len(kanban["failed"])
+            },
+            "kanban": kanban
+        }
+    
+    def _get_recent_activity(self) -> list:
+        """从storage/projects获取真实动态"""
+        projects_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            "storage", 
+            "projects"
+        )
+        
+        activities = []
+        
+        if os.path.exists(projects_path):
+            try:
+                for project_dir in os.listdir(projects_path):
+                    project_file = os.path.join(projects_path, project_dir, "info.json")
+                    project_name = project_dir
+                    if os.path.exists(project_file):
+                        with open(project_file, 'r', encoding='utf-8') as f:
+                            project_info = json.load(f)
+                            project_name = project_info.get("name", project_dir)
+                    
+                    # 读取会议记录
+                    meetings_dir = os.path.join(projects_path, project_dir, "meetings")
+                    if os.path.exists(meetings_dir):
+                        for meeting_file in os.listdir(meetings_dir):
+                            if meeting_file.endswith('.json'):
+                                meeting_path = os.path.join(meetings_dir, meeting_file)
+                                with open(meeting_path, 'r', encoding='utf-8') as f:
+                                    meeting = json.load(f)
+                                    activities.append({
+                                        "type": "meeting",
+                                        "content": f"项目 {project_name} 召开 {meeting.get('type', '会议')}",
+                                        "time": meeting.get("created_at", "")[:19] if meeting.get("created_at") else ""
+                                    })
+            except Exception as e:
+                print(f"Error reading activities: {e}")
+        
+        # 按时间排序，取最新的10条
+        activities.sort(key=lambda x: x.get("time", ""), reverse=True)
+        return activities[:10]
     
     def _get_projects_data(self) -> dict:
         """从storage/projects获取真实项目数据"""
@@ -480,6 +582,7 @@ class OpenClawRealtime:
         total = 0
         active = 0
         completed = 0
+        project_list = []
         
         if os.path.exists(projects_path):
             try:
@@ -494,13 +597,20 @@ class OpenClawRealtime:
                                 active += 1
                             elif status == "completed":
                                 completed += 1
+                            project_list.append({
+                                "id": project_dir,
+                                "name": project_info.get("name", project_dir),
+                                "status": status,
+                                "description": project_info.get("description", "")
+                            })
             except Exception as e:
                 print(f"Error reading projects: {e}")
         
         return {
             "total": total,
             "active": active,
-            "completed": completed
+            "completed": completed,
+            "list": project_list
         }
 
 
