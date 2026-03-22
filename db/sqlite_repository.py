@@ -703,7 +703,7 @@ class MeetingRepository:
     @staticmethod
     def create(title: str, host_id: int, start_time: str, end_time: str,
                status: str = "scheduled", notes: str = None, 
-               action_items: list = None) -> int:
+               action_items: list = None, meeting_room_id: int = None) -> int:
         """创建会议"""
         action_items_json = serialize_json_field(action_items)
         
@@ -711,9 +711,9 @@ class MeetingRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """INSERT INTO meetings 
-                   (title, host_id, start_time, end_time, status, notes, action_items) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (title, host_id, start_time, end_time, status, notes, action_items_json)
+                   (title, host_id, start_time, end_time, status, notes, action_items, meeting_room_id) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (title, host_id, start_time, end_time, status, notes, action_items_json, meeting_room_id)
             )
             conn.commit()
             return cursor.lastrowid
@@ -759,7 +759,7 @@ class MeetingRepository:
     @staticmethod
     def update(meeting_id: int, **kwargs) -> bool:
         """更新会议"""
-        allowed_fields = ["title", "host_id", "start_time", "end_time", "status", "notes", "action_items"]
+        allowed_fields = ["title", "host_id", "start_time", "end_time", "status", "notes", "action_items", "meeting_room_id"]
         updates = {}
         for k, v in kwargs.items():
             if k in allowed_fields:
@@ -779,6 +779,26 @@ class MeetingRepository:
             cursor.execute(f"UPDATE meetings SET {set_clause} WHERE id = ?", values)
             conn.commit()
             return cursor.rowcount > 0
+    
+    @staticmethod
+    def check_conflict(room_id: int, start_time: str, end_time: str, exclude_meeting_id: int = None) -> List[dict]:
+        """检查会议室在指定时间段是否有冲突"""
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            # 冲突条件：新会议的开始时间 < 已有会议的结束时间 AND 新会议的结束时间 > 已有会议的开始时间
+            query = """SELECT * FROM meetings 
+                       WHERE meeting_room_id = ? 
+                       AND status != 'cancelled'
+                       AND start_time < ? 
+                       AND end_time > ?"""
+            params = [room_id, end_time, start_time]
+            
+            if exclude_meeting_id:
+                query += " AND id != ?"
+                params.append(exclude_meeting_id)
+            
+            cursor.execute(query, params)
+            return [dict_from_row(row) for row in cursor.fetchall()]
     
     @staticmethod
     def delete(meeting_id: int) -> bool:

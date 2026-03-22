@@ -407,4 +407,238 @@ def handle_request(path, method="GET", body=None, headers=None):
             },
         }
     
+    # ============== 会议室管理API ==============
+    from db.sqlite_repository import MeetingRoomRepository, MeetingRepository
+    
+    # GET /api/meeting-rooms - 获取所有会议室
+    if path == "/api/meeting-rooms" and method == "GET":
+        status_filter = None
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            status_filter = data.get("status")
+        rooms = MeetingRoomRepository.get_all(status=status_filter)
+        return {"success": True, "meeting_rooms": rooms}
+    
+    # POST /api/meeting-rooms - 创建会议室
+    if path == "/api/meeting-rooms" and method == "POST":
+        data = json.loads(body) if body else {}
+        name = data.get("name", "").strip()
+        capacity = data.get("capacity", 0)
+        location = data.get("location", "")
+        status = data.get("status", "available")
+        
+        if not name:
+            return {"success": False, "error": "name_required"}
+        if capacity <= 0:
+            return {"success": False, "error": "capacity_required"}
+        
+        room_id = MeetingRoomRepository.create(name=name, capacity=capacity, location=location, status=status)
+        return {"success": True, "id": room_id, "message": "Meeting room created"}
+    
+    # PUT /api/meeting-rooms/{id} - 更新会议室
+    if path.startswith("/api/meeting-rooms/") and method == "PUT":
+        room_id = path.replace("/api/meeting-rooms/", "")
+        if not room_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        updates = {}
+        if "name" in data:
+            updates["name"] = data["name"]
+        if "capacity" in data:
+            updates["capacity"] = data["capacity"]
+        if "location" in data:
+            updates["location"] = data["location"]
+        if "status" in data:
+            updates["status"] = data["status"]
+        
+        if not updates:
+            return {"success": False, "error": "no_fields_to_update"}
+        
+        success = MeetingRoomRepository.update(int(room_id), **updates)
+        return {"success": success, "message": "Meeting room updated" if success else "Meeting room not found"}
+    
+    # DELETE /api/meeting-rooms/{id} - 删除会议室
+    if path.startswith("/api/meeting-rooms/") and method == "DELETE":
+        room_id = path.replace("/api/meeting-rooms/", "")
+        if not room_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        success = MeetingRoomRepository.delete(int(room_id))
+        return {"success": success, "message": "Meeting room deleted" if success else "Meeting room not found"}
+    
+    # POST /api/meeting-rooms/book - 预订会议室
+    if path == "/api/meeting-rooms/book" and method == "POST":
+        from domains.meeting_room_service import BookingService
+        
+        data = json.loads(body) if body else {}
+        title = data.get("title", "").strip()
+        host_id = data.get("host_id")
+        meeting_room_id = data.get("meeting_room_id")
+        start_time = data.get("start_time", "").strip()
+        end_time = data.get("end_time", "").strip()
+        notes = data.get("notes", "")
+        
+        if not title:
+            return {"success": False, "error": "title_required"}
+        if not host_id:
+            return {"success": False, "error": "host_id_required"}
+        if not meeting_room_id:
+            return {"success": False, "error": "meeting_room_id_required"}
+        if not start_time or not end_time:
+            return {"success": False, "error": "start_time_and_end_time_required"}
+        
+        result = BookingService.book_room(
+            title=title,
+            host_id=host_id,
+            meeting_room_id=meeting_room_id,
+            start_time=start_time,
+            end_time=end_time,
+            notes=notes
+        )
+        return result
+    
+    # GET /api/meeting-rooms/availability - 查询可用会议室
+    if path == "/api/meeting-rooms/availability" and method == "GET":
+        from domains.meeting_room_service import BookingService, get_availability
+        
+        # 解析查询参数
+        start_time = None
+        end_time = None
+        min_capacity = None
+        date = None
+        
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            start_time = data.get("start_time")
+            end_time = data.get("end_time")
+            min_capacity = data.get("min_capacity")
+            date = data.get("date")
+        
+        # 如果提供了具体时间段，查询可用会议室
+        if start_time and end_time:
+            available_rooms = BookingService.get_available_rooms(
+                start_time=start_time,
+                end_time=end_time,
+                min_capacity=min_capacity
+            )
+            return {
+                "success": True,
+                "start_time": start_time,
+                "end_time": end_time,
+                "available_rooms": available_rooms,
+                "count": len(available_rooms)
+            }
+        else:
+            # 否则返回会议室可用性概览
+            availability = get_availability(date=date)
+            return {"success": True, "availability": availability}
+    
+    # ============== 会议预订API ==============
+    
+    # POST /api/meetings - 预订会议
+    elif path == "/api/meetings" and method == "POST":
+        data = json.loads(body) if body else {}
+        title = data.get("title", "").strip()
+        host_id = data.get("host_id")
+        start_time = data.get("start_time", "").strip()
+        end_time = data.get("end_time", "").strip()
+        meeting_room_id = data.get("meeting_room_id")
+        notes = data.get("notes", "")
+        
+        if not title:
+            return {"success": False, "error": "title_required"}
+        if not host_id:
+            return {"success": False, "error": "host_id_required"}
+        if not start_time or not end_time:
+            return {"success": False, "error": "start_time_and_end_time_required"}
+        
+        # 如果指定了会议室，检查冲突
+        if meeting_room_id:
+            conflicts = MeetingRepository.check_conflict(meeting_room_id, start_time, end_time)
+            if conflicts:
+                return {
+                    "success": False,
+                    "error": "room_conflict",
+                    "conflicts": conflicts,
+                    "message": "会议室在该时间段已被占用"
+                }
+        
+        meeting_id = MeetingRepository.create(
+            title=title,
+            host_id=host_id,
+            start_time=start_time,
+            end_time=end_time,
+            meeting_room_id=meeting_room_id,
+            notes=notes,
+            status="scheduled"
+        )
+        return {"success": True, "id": meeting_id, "message": "Meeting scheduled"}
+    
+    # GET /api/meetings - 获取会议列表
+    elif path == "/api/meetings" and method == "GET":
+        host_id = None
+        status = None
+        meeting_room_id = None
+        # 支持查询参数
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            host_id = data.get("host_id")
+            status = data.get("status")
+            meeting_room_id = data.get("meeting_room_id")
+        
+        meetings = MeetingRepository.get_all(host_id=host_id, status=status)
+        # 过滤会议室
+        if meeting_room_id:
+            meetings = [m for m in meetings if m.get("meeting_room_id") == meeting_room_id]
+        return {"success": True, "meetings": meetings}
+    
+    # PUT /api/meetings/{id} - 更新会议
+    elif path.startswith("/api/meetings/") and method == "PUT":
+        meeting_id = path.replace("/api/meetings/", "")
+        if not meeting_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        updates = {}
+        allowed_fields = ["title", "host_id", "start_time", "end_time", "status", "notes", "meeting_room_id"]
+        
+        for field in allowed_fields:
+            if field in data:
+                updates[field] = data[field]
+        
+        if not updates:
+            return {"success": False, "error": "no_fields_to_update"}
+        
+        # 如果更新了会议室或时间，检查冲突
+        if updates.get("meeting_room_id") or updates.get("start_time") or updates.get("end_time"):
+            meeting = MeetingRepository.get_by_id(int(meeting_id))
+            if meeting:
+                room_id = updates.get("meeting_room_id", meeting.get("meeting_room_id"))
+                start_time = updates.get("start_time", meeting.get("start_time"))
+                end_time = updates.get("end_time", meeting.get("end_time"))
+                
+                if room_id:
+                    conflicts = MeetingRepository.check_conflict(room_id, start_time, end_time, exclude_meeting_id=int(meeting_id))
+                    if conflicts:
+                        return {
+                            "success": False,
+                            "error": "room_conflict",
+                            "conflicts": conflicts,
+                            "message": "会议室在该时间段已被占用"
+                        }
+        
+        success = MeetingRepository.update(int(meeting_id), **updates)
+        return {"success": success, "message": "Meeting updated" if success else "Meeting not found"}
+    
+    # DELETE /api/meetings/{id} - 取消会议
+    elif path.startswith("/api/meetings/") and method == "DELETE":
+        meeting_id = path.replace("/api/meetings/", "")
+        if not meeting_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        # 软删除：将状态设为cancelled
+        success = MeetingRepository.update(int(meeting_id), status="cancelled")
+        return {"success": success, "message": "Meeting cancelled" if success else "Meeting not found"}
+    
     return {"error": "Not found"}
