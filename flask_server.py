@@ -360,4 +360,157 @@ if __name__ == '__main__':
     print("Starting Flask server on http://127.0.0.1:8080")
     print("Authentication enabled")
     print("Default admin credentials: admin / admin123")
+    
+    # 导入任务执行API
+    from core.task_execution import (
+        create_task,
+        create_tasks_from_conclusion,
+        assign_task,
+        set_task_priority,
+        set_task_due_date,
+        start_task,
+        update_task_progress,
+        add_task_log,
+        complete_task,
+        fail_task,
+        get_task_status,
+        get_all_tasks,
+        get_task_statistics
+    )
+    
+    @app.route('/api/task', methods=['POST'])
+    def api_create_task():
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        task = create_task(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            project_id=data.get("project_id"),
+            assignee_id=data.get("assignee_id"),
+            priority=data.get("priority", "medium"),
+            due_date=data.get("due_date")
+        )
+        return jsonify({"success": True, "task": task})
+    
+    @app.route('/api/tasks/from-conclusion', methods=['POST'])
+    def api_tasks_from_conclusion():
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        conclusion = data.get("conclusion", "")
+        if not conclusion:
+            return jsonify({"success": False, "error": "conclusion_required"}), 400
+        tasks = create_tasks_from_conclusion(
+            conclusion=conclusion,
+            project_id=data.get("project_id"),
+            default_assignee_id=data.get("assignee_id")
+        )
+        return jsonify({"success": True, "tasks": tasks, "count": len(tasks)})
+    
+    @app.route('/api/task/<int:task_id>/assign', methods=['POST'])
+    def api_task_assign(task_id):
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        employee_id = data.get("employee_id")
+        if not employee_id:
+            return jsonify({"success": False, "error": "employee_id_required"}), 400
+        result = assign_task(task_id, employee_id)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/priority', methods=['POST'])
+    def api_task_priority(task_id):
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        priority = data.get("priority", "medium")
+        if priority not in ["low", "medium", "high", "urgent"]:
+            return jsonify({"success": False, "error": "invalid_priority"}), 400
+        result = set_task_priority(task_id, priority)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/due-date', methods=['POST'])
+    def api_task_due_date(task_id):
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        due_date = data.get("due_date")
+        if not due_date:
+            return jsonify({"success": False, "error": "due_date_required"}), 400
+        result = set_task_due_date(task_id, due_date)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/start', methods=['POST'])
+    def api_task_start(task_id):
+        result = start_task(task_id)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/progress', methods=['POST'])
+    def api_task_progress(task_id):
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        progress = data.get("progress", 0)
+        message = data.get("message", "")
+        if progress < 0 or progress > 100:
+            return jsonify({"success": False, "error": "invalid_progress"}), 400
+        result = update_task_progress(task_id, progress, message)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/log', methods=['POST'])
+    def api_task_log(task_id):
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        log = data.get("log", "")
+        if not log:
+            return jsonify({"success": False, "error": "log_required"}), 400
+        result = add_task_log(task_id, log)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/complete', methods=['POST'])
+    def api_task_complete(task_id):
+        data = request.get_json() or {}
+        result_text = data.get("result")
+        result = complete_task(task_id, result_text)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/fail', methods=['POST'])
+    def api_task_fail(task_id):
+        data = request.get_json() or {}
+        reason = data.get("reason", "未知原因")
+        result = fail_task(task_id, reason)
+        return jsonify(result)
+    
+    @app.route('/api/task/<int:task_id>/status', methods=['GET'])
+    def api_task_status(task_id):
+        result = get_task_status(task_id)
+        return jsonify(result)
+    
+    @app.route('/api/tasks', methods=['GET'])
+    def api_tasks_list():
+        status = request.args.get("status")
+        assignee_id = request.args.get("assignee_id", type=int)
+        tasks = get_all_tasks(status=status, assignee_id=assignee_id)
+        return jsonify({"success": True, "tasks": tasks, "count": len(tasks)})
+    
+    @app.route('/api/tasks/statistics', methods=['GET'])
+    def api_tasks_statistics():
+        stats = get_task_statistics()
+        return jsonify({"success": True, "statistics": stats})
+    
+    @app.route('/api/meeting/extract-tasks', methods=['POST'])
+    def api_extract_tasks():
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Invalid request body"}), 400
+        conclusion = data.get("conclusion", "")
+        if not conclusion:
+            return jsonify({"success": False, "error": "conclusion_required"}), 400
+        from core.task_execution import get_task_system
+        system = get_task_system()
+        extracted = system.extract_tasks_from_conclusion(conclusion)
+        return jsonify({"success": True, "extracted_tasks": extracted, "count": len(extracted)})
+    
     app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)

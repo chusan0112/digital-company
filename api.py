@@ -1181,4 +1181,205 @@ def handle_request(path, method="GET", body=None, headers=None):
         )
         return {"success": True, "meeting": result}
     
+    # ============== 任务执行系统接口 ==============
+    
+    # 导入任务执行模块
+    from core.task_execution import (
+        create_task,
+        create_tasks_from_conclusion,
+        assign_task,
+        set_task_priority,
+        set_task_due_date,
+        start_task,
+        update_task_progress,
+        add_task_log,
+        complete_task,
+        fail_task,
+        get_task_status,
+        get_all_tasks,
+        get_task_statistics,
+        TASK_STATUS_PENDING,
+        TASK_STATUS_IN_PROGRESS,
+        TASK_STATUS_COMPLETED,
+        TASK_STATUS_FAILED,
+        PRIORITY_LOW,
+        PRIORITY_MEDIUM,
+        PRIORITY_HIGH,
+        PRIORITY_URGENT
+    )
+    
+    # POST /api/task - 创建任务
+    elif path == "/api/task" and method == "POST":
+        data = json.loads(body) if body else {}
+        task = create_task(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            project_id=data.get("project_id"),
+            assignee_id=data.get("assignee_id"),
+            priority=data.get("priority", "medium"),
+            due_date=data.get("due_date")
+        )
+        return {"success": True, "task": task}
+    
+    # POST /api/tasks/from-conclusion - 从会议结论创建任务
+    elif path == "/api/tasks/from-conclusion" and method == "POST":
+        data = json.loads(body) if body else {}
+        conclusion = data.get("conclusion", "")
+        if not conclusion:
+            return {"success": False, "error": "conclusion_required"}
+        
+        tasks = create_tasks_from_conclusion(
+            conclusion=conclusion,
+            project_id=data.get("project_id"),
+            default_assignee_id=data.get("assignee_id")
+        )
+        return {"success": True, "tasks": tasks, "count": len(tasks)}
+    
+    # POST /api/task/{id}/assign - 分配任务
+    elif path.startswith("/api/task/") and path.endswith("/assign") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/assign", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        employee_id = data.get("employee_id")
+        if not employee_id:
+            return {"success": False, "error": "employee_id_required"}
+        
+        result = assign_task(int(task_id), employee_id)
+        return result
+    
+    # POST /api/task/{id}/priority - 设置优先级
+    elif path.startswith("/api/task/") and path.endswith("/priority") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/priority", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        priority = data.get("priority", "medium")
+        if priority not in ["low", "medium", "high", "urgent"]:
+            return {"success": False, "error": "invalid_priority"}
+        
+        result = set_task_priority(int(task_id), priority)
+        return result
+    
+    # POST /api/task/{id}/due-date - 设置截止日期
+    elif path.startswith("/api/task/") and path.endswith("/due-date") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/due-date", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        due_date = data.get("due_date")
+        if not due_date:
+            return {"success": False, "error": "due_date_required"}
+        
+        result = set_task_due_date(int(task_id), due_date)
+        return result
+    
+    # POST /api/task/{id}/start - 开始任务
+    elif path.startswith("/api/task/") and path.endswith("/start") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/start", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        result = start_task(int(task_id))
+        return result
+    
+    # POST /api/task/{id}/progress - 更新进度
+    elif path.startswith("/api/task/") and path.endswith("/progress") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/progress", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        progress = data.get("progress", 0)
+        message = data.get("message", "")
+        
+        if progress < 0 or progress > 100:
+            return {"success": False, "error": "invalid_progress"}
+        
+        result = update_task_progress(int(task_id), progress, message)
+        return result
+    
+    # POST /api/task/{id}/log - 添加执行日志
+    elif path.startswith("/api/task/") and path.endswith("/log") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/log", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        log = data.get("log", "")
+        if not log:
+            return {"success": False, "error": "log_required"}
+        
+        result = add_task_log(int(task_id), log)
+        return result
+    
+    # POST /api/task/{id}/complete - 完成任务
+    elif path.startswith("/api/task/") and path.endswith("/complete") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/complete", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        result_text = data.get("result")
+        
+        result = complete_task(int(task_id), result_text)
+        return result
+    
+    # POST /api/task/{id}/fail - 标记任务失败
+    elif path.startswith("/api/task/") and path.endswith("/fail") and method == "POST":
+        task_id = path.replace("/api/task/", "").replace("/fail", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        data = json.loads(body) if body else {}
+        reason = data.get("reason", "未知原因")
+        
+        result = fail_task(int(task_id), reason)
+        return result
+    
+    # GET /api/task/{id} - 获取任务状态
+    elif path.startswith("/api/task/") and path.endswith("/status") and method == "GET":
+        task_id = path.replace("/api/task/", "").replace("/status", "")
+        if not task_id.isdigit():
+            return {"success": False, "error": "invalid_id"}
+        
+        result = get_task_status(int(task_id))
+        return result
+    
+    # GET /api/tasks - 获取任务列表
+    elif path == "/api/tasks" and method == "GET":
+        status = None
+        assignee_id = None
+        
+        if body:
+            data = json.loads(body) if isinstance(body, str) else body
+            status = data.get("status")
+            assignee_id = data.get("assignee_id")
+        
+        tasks = get_all_tasks(status=status, assignee_id=assignee_id)
+        return {"success": True, "tasks": tasks, "count": len(tasks)}
+    
+    # GET /api/tasks/statistics - 获取任务统计
+    elif path == "/api/tasks/statistics" and method == "GET":
+        stats = get_task_statistics()
+        return {"success": True, "statistics": stats}
+    
+    # ============== 提取会议结论中的任务（便捷接口）==============
+    
+    # POST /api/meeting/extract-tasks - 从会议结论提取任务
+    elif path == "/api/meeting/extract-tasks" and method == "POST":
+        data = json.loads(body) if body else {}
+        conclusion = data.get("conclusion", "")
+        if not conclusion:
+            return {"success": False, "error": "conclusion_required"}
+        
+        from core.task_execution import get_task_system
+        system = get_task_system()
+        extracted = system.extract_tasks_from_conclusion(conclusion)
+        
+        return {"success": True, "extracted_tasks": extracted, "count": len(extracted)}
+    
     return {"error": "Not found"}
