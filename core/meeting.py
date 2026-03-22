@@ -29,11 +29,11 @@ ROLE_EVALUATORS = {
 
 # 角色到OpenClaw Agent的映射
 ROLE_TO_AGENT = {
+    "CEO": "jxshi",   # 金小市 - 市场官（兼任CEO角色）
     "CFO": "jxcai",   # 金小财 - 财务官
     "CTO": "jxchma",  # 金小码 - 技术官
     "COO": "jxyun",   # 金小运 - 运营官
     "CHRO": "jxchuang", # 金小创 - 人力/创意官
-    "CEO": "jxshi",   # 金小市 - 市场官（兼任CEO角色）
 }
 
 # 角色发言风格定义
@@ -154,28 +154,22 @@ class MeetingDiscussion:
             if agent_id in EMPLOYEE_MAPPING:
                 try:
                     realtime = get_realtime()
-                    # 构建提示词
+                    # 从context获取项目信息
                     budget = context.get("budget", 1000) if context else 1000
                     deadline = context.get("deadline", "T+30d") if context else "T+30d"
                     priority = context.get("priority", "high") if context else "high"
                     target = context.get("target", "日入100元") if context else "日入100元"
                     
-                    prompt = f"""你是{EMPLOYEE_MAPPING[agent_id]['name']}，{EMPLOYEE_MAPPING[agent_id]['role']}。
-                    
-公司正在讨论项目立项，议题是：「{topic}」
+                    # 构建完整的话题描述，包含上下文
+                    full_topic = f"""议题：{topic}
 项目预算：{budget}元
 截止时间：{deadline}
 优先级：{priority}
 目标收益：{target}
 
-请从你的专业角度出发，发表2-3句话的简短意见。要求：
-1. 简洁有力，不超过100字
-2. 体现你的专业水准
-3. 直接给出观点和建议
-
-请直接回答，不要添加格式。"""
+请从你的专业角度出发，发表2-3句话的简短意见。要求简洁有力，体现专业水准。"""
                     
-                    real_speech_content = realtime.request_speech(agent_id, prompt)
+                    real_speech_content = realtime.request_speech(agent_id, full_topic, timeout=30)
                     use_real_agent = True
                     
                 except Exception as e:
@@ -462,13 +456,76 @@ def end_meeting() -> Dict:
     return result
 
 
-def run_full_discussion(topic: str, context: Dict = None) -> Dict:
+import signal
+from functools import wraps
+
+class TimeoutError(Exception):
+    """超时异常"""
+    pass
+
+def timeout_handler(signum, frame):
+    """超时处理器"""
+    raise TimeoutError("API调用超时")
+
+def with_timeout(timeout_seconds: int = 30):
     """
-    运行完整讨论流程
+    超时装饰器
+    
+    Args:
+        timeout_seconds: 超时秒数，默认30秒
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Windows 不支持 signal，需要特殊处理
+            import platform
+            if platform.system() != 'Windows':
+                # 设置超时信号处理器
+                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(timeout_seconds)
+                try:
+                    result = func(*args, **kwargs)
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+                return result
+            else:
+                # Windows 使用 threading 实现超时
+                import threading
+                result = [None]
+                exception = [None]
+                
+                def target():
+                    try:
+                        result[0] = func(*args, **kwargs)
+                    except Exception as e:
+                        exception[0] = e
+                
+                thread = threading.Thread(target=target)
+                thread.daemon = True
+                thread.start()
+                thread.join(timeout=timeout_seconds)
+                
+                if thread.is_alive():
+                    raise TimeoutError(f"API调用超过{timeout_seconds}秒")
+                
+                if exception[0]:
+                    raise exception[0]
+                
+                return result[0]
+        return wrapper
+    return decorator
+
+
+def run_full_discussion(topic: str, context: Dict = None, max_rounds: int = 5, timeout_seconds: int = 30) -> Dict:
+    """
+    运行完整讨论流程（带超时和轮次限制）
     
     Args:
         topic: 讨论议题
         context: 额外上下文
+        max_rounds: 最大发言轮次，默认5轮（每轮每个参与者发言一次）
+        timeout_seconds: 每次API调用超时秒数，默认30秒
     
     Returns:
         完整的会议纪要
@@ -476,11 +533,42 @@ def run_full_discussion(topic: str, context: Dict = None) -> Dict:
     # 启动会议
     start_result = start_meeting(topic)
     
+    # 获取参与者数量
+    participants_count = len(start_result.get("participants", []))
+    max_total_rounds = min(max_rounds * participants_count, 30)  # 最多30轮发言
+    current_round = 0
+    
     # 依次让每个参与者发言
-    while True:
-        turn_result = next_speaker(context)
-        if not turn_result.get("success"):
-            break
+    while current_round < max_total_rounds:
+        try:
+            # 调用 next_speaker（内部已有超时保护）
+            turn_result = next_speaker(context)
+            
+            # 检查发言是否成功
+            if not turn_result.get("success"):
+                break
+            
+            current_round += 1
+            
+        except TimeoutError as e:
+            # 超时异常，记录警告并继续下一轮
+            print(f"[警告] 发言超时: {str(e)}，继续下一轮")
+            current_round += 1
+            continue
+        except Exception as e:
+            # 其他异常，记录错误但继续尝试完成会议
+            print(f"[错误] 发言过程出现异常: {str(e)}，尝试继续完成会议")
+            current_round += 1
+            continue
     
     # 结束会议并生成纪要
-    return end_meeting()
+    meeting_result = end_meeting()
+    
+    # 在结果中添加调试信息
+    meeting_result["_debug"] = {
+        "total_rounds": current_round,
+        "max_rounds": max_total_rounds,
+        "timeout_seconds": timeout_seconds
+    }
+    
+    return meeting_result

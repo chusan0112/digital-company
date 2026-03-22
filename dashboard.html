@@ -863,23 +863,13 @@
             failedTasks: document.getElementById('failedTasks')
         };
         
-        // 项目数据（模拟）
-        const projects = [
-            { id: 1, name: 'OpenClaw插件开发', status: 'active', progress: 75, tasks: 8, completed: 6, lead: '金小码' },
-            { id: 2, name: '飞书自动化集成', status: 'active', progress: 45, tasks: 12, completed: 5, lead: '金小运' },
-            { id: 3, name: '数字公司监控系统', status: 'completed', progress: 100, tasks: 6, completed: 6, lead: '金小码' }
-        ];
+        // 项目数据（从API获取）
+        let projects = [];
         
-        // 任务数据（模拟）
-        const tasks = [
-            { id: 1, desc: '优化Dashboard性能', status: 'running', agent: '金小码', time: '10分钟前' },
-            { id: 2, desc: '飞书消息同步功能', status: 'pending', agent: '金小运', time: '30分钟前' },
-            { id: 3, desc: 'Agent自动化测试', status: 'completed', agent: '金小码', time: '1小时前' },
-            { id: 4, desc: '财务报表生成', status: 'completed', agent: '金小财', time: '2小时前' },
-            { id: 5, desc: '市场推广方案', status: 'pending', agent: '金小市', time: '3小时前' }
-        ];
+        // 任务数据（从API获取）
+        let tasks = [];
         
-        // 活动记录
+        // 活动记录（从API获取）
         let activities = [];
         
         // 时钟更新
@@ -967,7 +957,14 @@
         }
         
         // 渲染项目看板
-        function renderProjects() {
+        function renderProjects(data) {
+            // 从API获取项目数据
+            const projectData = data && data.projects ? data.projects : {};
+            const projectList = projectData.list || [];
+            
+            // 同时更新全局projects变量
+            projects = projectList;
+            
             if (!projects || projects.length === 0) {
                 elements.projectList.innerHTML = `
                     <div class="empty-state">
@@ -980,18 +977,21 @@
             
             let html = '';
             projects.forEach(proj => {
+                const statusText = proj.status === 'active' || proj.status === 'kickoff' ? '进行中' : 
+                                  proj.status === 'completed' ? '已完成' : '规划中';
+                const owner = proj.owner || '待分配';
                 html += `
                     <div class="project-item">
                         <div class="project-header">
-                            <div class="project-name">${proj.name}</div>
-                            <div class="project-status ${proj.status}">${proj.status === 'active' ? '进行中' : proj.status === 'completed' ? '已完成' : '规划中'}</div>
+                            <div class="project-name">${proj.name || proj.id}</div>
+                            <div class="project-status ${proj.status}">${statusText}</div>
                         </div>
                         <div class="project-progress">
-                            <div class="project-progress-bar" style="width: ${proj.progress}%"></div>
+                            <div class="project-progress-bar" style="width: 50%"></div>
                         </div>
                         <div class="project-meta">
-                            <span>负责人: ${proj.lead}</span>
-                            <span>${proj.completed}/${proj.tasks} 任务</span>
+                            <span>负责人: ${owner}</span>
+                            <span>${proj.description || ''}</span>
                         </div>
                     </div>
                 `;
@@ -1002,7 +1002,22 @@
         }
         
         // 渲染任务看板
-        function renderTasks() {
+        function renderTasks(data) {
+            // 从API获取任务数据
+            const taskKanban = data && data.task_kanban ? data.task_kanban : {};
+            
+            // 合并所有状态的任务
+            const allTasks = [
+                ...(taskKanban.pending || []),
+                ...(taskKanban.in_progress || []),
+                ...(taskKanban.running || []),
+                ...(taskKanban.completed || []),
+                ...(taskKanban.failed || [])
+            ];
+            
+            // 同时更新全局tasks变量供其他地方使用
+            tasks = allTasks;
+            
             if (!tasks || tasks.length === 0) {
                 elements.taskList.innerHTML = `
                     <div class="empty-state">
@@ -1016,18 +1031,23 @@
             let html = '';
             const icons = {
                 'pending': '⏳',
+                'in_progress': '🔄',
                 'running': '🔄',
                 'completed': '✅',
                 'failed': '❌'
             };
             
             tasks.forEach(task => {
+                const desc = task.name || task.title || task.description || '未命名任务';
+                const agent = task.assignee_id || task.project || '系统';
+                const time = formatTime(task.created_at || task.updated_at);
+                
                 html += `
                     <div class="task-item">
-                        <div class="task-icon ${task.status}">${icons[task.status]}</div>
+                        <div class="task-icon ${task.status}">${icons[task.status] || '📋'}</div>
                         <div class="task-info">
-                            <div class="task-desc">${task.desc}</div>
-                            <div class="task-meta">${task.agent} · ${task.time}</div>
+                            <div class="task-desc">${desc}</div>
+                            <div class="task-meta">${agent} · ${time}</div>
                         </div>
                     </div>
                 `;
@@ -1038,10 +1058,10 @@
             
             // 更新任务统计
             const taskStats = {
-                pending: tasks.filter(t => t.status === 'pending').length,
-                running: tasks.filter(t => t.status === 'running').length,
-                completed: tasks.filter(t => t.status === 'completed').length,
-                failed: tasks.filter(t => t.status === 'failed').length
+                pending: (taskKanban.pending || []).length,
+                running: (taskKanban.in_progress || []).length + (taskKanban.running || []).length,
+                completed: (taskKanban.completed || []).length,
+                failed: (taskKanban.failed || []).length
             };
             
             elements.pendingTasks.textContent = taskStats.pending;
@@ -1094,7 +1114,16 @@
         }
         
         // 渲染活动列表
-        function renderActivities() {
+        function renderActivities(data) {
+            // 从API获取动态数据
+            if (data && data.recent_activity && data.recent_activity.length > 0) {
+                activities = data.recent_activity.map(act => ({
+                    time: formatTime(act.time),
+                    agent: '系统',
+                    content: act.content || act.type || '有新动态'
+                }));
+            }
+            
             if (activities.length === 0) {
                 elements.activityList.innerHTML = `
                     <div class="empty-state">
@@ -1277,14 +1306,18 @@
             await fetchMeetingData();
             connectSSE();
             
-            // 渲染看板
-            renderProjects();
-            renderTasks();
+            // 渲染看板（传入真实数据）
+            renderProjects(dashboardData);
+            renderTasks(dashboardData);
+            renderActivities(dashboardData);
             
-            // 添加一些模拟活动
-            addActivity('系统', '监控大屏已启动');
-            addActivity('金小码', '完成代码审查');
-            addActivity('金小运', '更新任务状态');
+            // 添加真实动态（如果有）
+            if (dashboardData && dashboardData.recent_activity && dashboardData.recent_activity.length > 0) {
+                // 不需要添加模拟活动，使用真实数据
+            } else {
+                // 没有真实数据时才显示默认动态
+                addActivity('系统', '监控大屏已启动');
+            }
             
             // 每30秒刷新一次完整数据
             setInterval(fetchData, 30000);

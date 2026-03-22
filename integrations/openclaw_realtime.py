@@ -338,37 +338,62 @@ class OpenClawRealtime:
             )
             self._tasks_cache[task_id] = task_obj
     
-    def request_speech(self, agent_id: str, topic: str) -> str:
-        """让员工发言（会议模式）"""
+    def request_speech(self, agent_id: str, topic: str, timeout: int = 30) -> str:
+        """
+        让员工发言（会议模式）
+        
+        Args:
+            agent_id: 员工Agent ID
+            topic: 讨论话题
+            timeout: 超时秒数，默认30秒
+        
+        Returns:
+            发言内容
+        """
         if agent_id not in EMPLOYEE_MAPPING:
             raise ValueError(f"Unknown agent: {agent_id}")
         
         agent_name = EMPLOYEE_MAPPING[agent_id]["name"]
         role = EMPLOYEE_MAPPING[agent_id]["role"]
         
-        # 尝试调用真实的Agent
-        speech_prompt = f"""你是{agent_name}，{role}。现在公司正在开会讨论「{topic}」。
+        # 如果 topic 已经包含完整的提示词（以"议题："开头），直接使用
+        # 否则构建完整的 prompt
+        if topic and topic.strip().startswith("议题："):
+            speech_prompt = f"你是{agent_name}，{role}。\n\n{topic}"
+        else:
+            # 尝试调用真实的Agent，添加超时保护
+            speech_prompt = f"""你是{agent_name}，{role}。现在公司正在开会讨论「{topic}」。
 请从你的专业角度，发表2-3句话的专业意见。要求简洁有力，体现专业水准。"""
         
-        # 调用子Agent获取回复
-        result = self._run_command([
-            "agent",
-            "--agent", agent_id,
-            "--message", speech_prompt,
-            "--json"
-        ], timeout=30)
-        
-        # 如果成功获取响应，返回响应内容
-        if result.get("success"):
-            data = result.get("data", {})
-            if isinstance(data, dict):
-                # 尝试从各种字段获取响应
-                response = data.get("response") or data.get("message") or data.get("content") or data.get("reply")
-                if response:
-                    return response
-        
-        # 如果没有获取到响应，返回基于角色的模拟发言
-        return self._generate_mock_speech(agent_id, topic)
+        try:
+            # 调用子Agent获取回复，设置超时
+            result = self._run_command([
+                "agent",
+                "--agent", agent_id,
+                "--message", speech_prompt,
+                "--json"
+            ], timeout=timeout)
+            
+            # 如果成功获取响应，返回响应内容
+            if result.get("success"):
+                data = result.get("data", {})
+                if isinstance(data, dict):
+                    # 尝试从各种字段获取响应
+                    response = data.get("response") or data.get("message") or data.get("content") or data.get("reply")
+                    if response:
+                        return response
+            
+            # 如果没有获取到响应，返回基于角色的模拟发言
+            return self._generate_mock_speech(agent_id, topic)
+            
+        except subprocess.TimeoutExpired:
+            # 超时异常，返回模拟发言
+            print(f"[警告] Agent {agent_id} 发言超时({timeout}秒)，使用模拟发言")
+            return self._generate_mock_speech(agent_id, topic)
+        except Exception as e:
+            # 其他异常，记录错误并返回模拟发言
+            print(f"[错误] Agent {agent_id} 发言异常: {str(e)}，使用模拟发言")
+            return self._generate_mock_speech(agent_id, topic)
     
     def _generate_mock_speech(self, agent_id: str, topic: str) -> str:
         """生成基于角色的模拟发言"""
