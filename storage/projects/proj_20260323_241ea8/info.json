@@ -1,0 +1,24 @@
+{
+  "id": "proj_20260323_241ea8",
+  "name": "AI测试项目",
+  "description": "测试真实AI发言功能",
+  "department_id": "",
+  "budget": 1000,
+  "owner": "金小创",
+  "tags": [],
+  "status": "planning",
+  "created_at": "2026-03-23T02:11:09.347571",
+  "updated_at": "2026-03-23T02:12:26.287962",
+  "start_date": null,
+  "end_date": null,
+  "kickoff_meeting_id": "meet_20260323_e90a20",
+  "meetings": [
+    "meet_20260323_e90a20"
+  ],
+  "tasks": [],
+  "lessons": [],
+  "milestones": [],
+  "team_members": [],
+  "progress": 0,
+  "conclusion": null
+}

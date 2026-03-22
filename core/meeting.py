@@ -10,6 +10,13 @@ from executives.cto import evaluate as cto_evaluate
 from executives.coo import evaluate as coo_evaluate
 from executives.chro import evaluate as chro_evaluate
 
+# 导入OpenClaw实时数据获取器
+try:
+    from integrations.openclaw_realtime import get_realtime, EMPLOYEE_MAPPING
+    OPENCLAW_AVAILABLE = True
+except ImportError:
+    OPENCLAW_AVAILABLE = False
+    EMPLOYEE_MAPPING = {}
 
 # 角色到评估函数的映射
 ROLE_EVALUATORS = {
@@ -18,6 +25,15 @@ ROLE_EVALUATORS = {
     "CTO": cto_evaluate,
     "COO": coo_evaluate,
     "CHRO": chro_evaluate,
+}
+
+# 角色到OpenClaw Agent的映射
+ROLE_TO_AGENT = {
+    "CFO": "jxcai",   # 金小财 - 财务官
+    "CTO": "jxchma",  # 金小码 - 技术官
+    "COO": "jxyun",   # 金小运 - 运营官
+    "CHRO": "jxchuang", # 金小创 - 人力/创意官
+    "CEO": "jxshi",   # 金小市 - 市场官（兼任CEO角色）
 }
 
 # 角色发言风格定义
@@ -116,7 +132,7 @@ class MeetingDiscussion:
     
     def generate_speech(self, speaker_role: str, topic: str, context: Dict = None) -> Dict:
         """
-        根据发言人的角色生成观点
+        根据发言人的角色生成观点 - 优先调用真实OpenClaw AI Agent
         
         Args:
             speaker_role: 发言人角色
@@ -126,35 +142,84 @@ class MeetingDiscussion:
         Returns:
             发言内容
         """
-        # 构建评估所需的payload
-        intent_payload = {
-            "business_name": topic,
-            "budget_cap": context.get("budget", 200000) if context else 200000,
-            "deadline": context.get("deadline", "T+90d") if context else "T+90d",
-            "priority": context.get("priority", "medium") if context else "medium",
-        }
-        
-        # 获取角色评估
-        evaluator = ROLE_EVALUATORS.get(speaker_role)
-        if not evaluator:
-            return {
-                "success": False,
-                "error": f"Unknown role: {speaker_role}"
-            }
-        
-        evaluation = evaluator(intent_payload)
-        
-        # 构建发言内容
+        # 获取发言风格
         speech_style = ROLE_SPEECH_STYLES.get(speaker_role, {})
         
-        speech = {
-            "speaker_role": speaker_role,
-            "speaker_title": speech_style.get("title", speaker_role),
-            "topic": topic,
-            "timestamp": datetime.now().isoformat(),
-            "evaluation": evaluation,
-            "speech_content": self._format_speech(speaker_role, evaluation, speech_style),
-        }
+        # 尝试调用真实的OpenClaw AI Agent
+        real_speech_content = None
+        use_real_agent = False
+        
+        if OPENCLAW_AVAILABLE and speaker_role in ROLE_TO_AGENT:
+            agent_id = ROLE_TO_AGENT[speaker_role]
+            if agent_id in EMPLOYEE_MAPPING:
+                try:
+                    realtime = get_realtime()
+                    # 构建提示词
+                    budget = context.get("budget", 1000) if context else 1000
+                    deadline = context.get("deadline", "T+30d") if context else "T+30d"
+                    priority = context.get("priority", "high") if context else "high"
+                    target = context.get("target", "日入100元") if context else "日入100元"
+                    
+                    prompt = f"""你是{EMPLOYEE_MAPPING[agent_id]['name']}，{EMPLOYEE_MAPPING[agent_id]['role']}。
+                    
+公司正在讨论项目立项，议题是：「{topic}」
+项目预算：{budget}元
+截止时间：{deadline}
+优先级：{priority}
+目标收益：{target}
+
+请从你的专业角度出发，发表2-3句话的简短意见。要求：
+1. 简洁有力，不超过100字
+2. 体现你的专业水准
+3. 直接给出观点和建议
+
+请直接回答，不要添加格式。"""
+                    
+                    real_speech_content = realtime.request_speech(agent_id, prompt)
+                    use_real_agent = True
+                    
+                except Exception as e:
+                    use_real_agent = False
+        
+        # 如果获取到真实AI回复，使用它；否则使用本地评估
+        if use_real_agent and real_speech_content:
+            speech = {
+                "speaker_role": speaker_role,
+                "speaker_title": speech_style.get("title", speaker_role),
+                "agent_id": ROLE_TO_AGENT.get(speaker_role, ""),
+                "topic": topic,
+                "timestamp": datetime.now().isoformat(),
+                "is_real_ai": True,
+                "evaluation": {"source": "openclaw_agent"},
+                "speech_content": real_speech_content,
+            }
+        else:
+            # 使用本地评估函数（降级方案）
+            intent_payload = {
+                "business_name": topic,
+                "budget_cap": context.get("budget", 200000) if context else 200000,
+                "deadline": context.get("deadline", "T+90d") if context else "T+90d",
+                "priority": context.get("priority", "medium") if context else "medium",
+            }
+            
+            evaluator = ROLE_EVALUATORS.get(speaker_role)
+            if not evaluator:
+                return {
+                    "success": False,
+                    "error": f"Unknown role: {speaker_role}"
+                }
+            
+            evaluation = evaluator(intent_payload)
+            
+            speech = {
+                "speaker_role": speaker_role,
+                "speaker_title": speech_style.get("title", speaker_role),
+                "topic": topic,
+                "timestamp": datetime.now().isoformat(),
+                "is_real_ai": False,
+                "evaluation": evaluation,
+                "speech_content": self._format_speech(speaker_role, evaluation, speech_style),
+            }
         
         # 记录发言
         self.speeches.append(speech)
@@ -307,9 +372,12 @@ class MeetingDiscussion:
             "conclusion": conclusion,
             "detailed_speeches": [
                 {
-                    "role": s["speaker_role"],
-                    "title": s["speaker_title"],
-                    "content": s["speech_content"]
+                    "speaker_role": s.get("speaker_role", s.get("role", "")),
+                    "speaker_title": s.get("speaker_title", s.get("title", "")),
+                    "speech_content": s.get("speech_content", s.get("content", "")),
+                    "is_real_ai": s.get("is_real_ai", False),
+                    "agent_id": s.get("agent_id", ""),
+                    "timestamp": s.get("timestamp", "")
                 }
                 for s in self.speeches
             ]

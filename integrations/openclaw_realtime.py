@@ -179,24 +179,27 @@ class OpenClawRealtime:
             status = "idle"
             current_task = ""
             
-            # 检查是否有活跃的sessions
+            # 检查是否有活跃的sessions - sessions.json 是字典格式，key是session key
             sessions_path = os.path.join(OPENCLAW_AGENTS_DIR, agent_id, "sessions", "sessions.json")
             sessions_count = 0
+            latest_session_time = 0
             if os.path.exists(sessions_path):
                 try:
                     with open(sessions_path, 'r', encoding='utf-8') as f:
                         sessions_data = json.load(f)
-                        sessions = sessions_data.get("sessions", [])
-                        sessions_count = len(sessions)
-                        
-                        # 检查最新session的状态
-                        if sessions:
-                            # 最近活跃的session
-                            latest = sessions[0] if sessions else {}
-                            # 如果有活跃的message，视为工作中
-                            if latest.get("messages", []):
-                                status = "working"
-                except:
+                        # sessions.json 是字典，key是session标识，value是session数据
+                        if isinstance(sessions_data, dict):
+                            sessions_count = len(sessions_data)
+                            # 找出最新更新的session时间
+                            for session_key, session_info in sessions_data.items():
+                                updated_at = session_info.get("updatedAt", 0)
+                                if updated_at > latest_session_time:
+                                    latest_session_time = updated_at
+                                    # 检查是否最近活跃（5分钟内）
+                                    if updated_at > (time.time() * 1000 - 5 * 60 * 1000):
+                                        status = "working"
+                except Exception as e:
+                    print(f"Error reading sessions for {agent_id}: {e}")
                     pass
             
             # 尝试读取心跳文件
@@ -255,8 +258,15 @@ class OpenClawRealtime:
             try:
                 with open(sessions_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    return data.get("sessions", [])
-            except:
+                    # sessions.json 是字典格式，转换为列表返回
+                    if isinstance(data, dict):
+                        # 返回按更新时间排序的session列表
+                        sessions_list = list(data.values())
+                        sessions_list.sort(key=lambda x: x.get("updatedAt", 0), reverse=True)
+                        return sessions_list
+                    return []
+            except Exception as e:
+                print(f"Error reading sessions for {agent_id}: {e}")
                 pass
         return []
     
@@ -267,10 +277,25 @@ class OpenClawRealtime:
     
     def get_recent_messages(self, agent_id: str, limit: int = 10) -> List[dict]:
         """获取最近的对话消息"""
-        latest = self.get_latest_session(agent_id)
-        if latest:
-            messages = latest.get("messages", [])
-            return messages[-limit:] if messages else []
+        # 尝试从session store获取消息
+        sessions_path = os.path.join(OPENCLAW_AGENTS_DIR, agent_id, "sessions", "sessions.json")
+        if os.path.exists(sessions_path):
+            try:
+                with open(sessions_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        # 找到最新的session
+                        sessions_list = list(data.values())
+                        sessions_list.sort(key=lambda x: x.get("updatedAt", 0), reverse=True)
+                        if sessions_list:
+                            latest = sessions_list[0]
+                            # 尝试获取消息（可能在session data中）
+                            messages = latest.get("messages", [])
+                            if messages:
+                                return messages[-limit:] if messages else []
+            except Exception as e:
+                print(f"Error reading messages for {agent_id}: {e}")
+                pass
         return []
     
     def send_task(self, agent_id: str, task: str) -> str:
@@ -321,8 +346,6 @@ class OpenClawRealtime:
         agent_name = EMPLOYEE_MAPPING[agent_id]["name"]
         role = EMPLOYEE_MAPPING[agent_id]["role"]
         
-        print(f"[Meeting] Requesting speech from {agent_id} ({agent_name}) about {topic}")
-        
         # 尝试调用真实的Agent
         speech_prompt = f"""你是{agent_name}，{role}。现在公司正在开会讨论「{topic}」。
 请从你的专业角度，发表2-3句话的专业意见。要求简洁有力，体现专业水准。"""
@@ -334,8 +357,6 @@ class OpenClawRealtime:
             "--message", speech_prompt,
             "--json"
         ], timeout=30)
-        
-        print(f"[Meeting] Result: {result}")
         
         # 如果成功获取响应，返回响应内容
         if result.get("success"):
@@ -401,7 +422,15 @@ class OpenClawRealtime:
         for agent in agents:
             # 获取最近的任务/消息
             recent_messages = self.get_recent_messages(agent.agent_id, limit=3)
-            last_message = recent_messages[-1] if recent_messages else {}
+            last_message = ""
+            if recent_messages:
+                # 尝试从messages中获取内容
+                last_msg = recent_messages[-1]
+                if isinstance(last_msg, dict):
+                    last_message = last_msg.get("content", "") or last_msg.get("message", "") or last_msg.get("response", "")
+                elif isinstance(last_msg, str):
+                    last_message = last_msg
+                last_message = last_message[:100] if last_message else ""
             
             employees.append({
                 "agent_id": agent.agent_id,
@@ -413,8 +442,11 @@ class OpenClawRealtime:
                 "current_task": agent.current_task,
                 "sessions_count": agent.sessions_count,
                 "workspace": agent.workspace,
-                "last_message": last_message.get("content", "")[:100] if last_message else ""
+                "last_message": last_message
             })
+        
+        # 获取真实项目数据
+        projects_data = self._get_projects_data()
         
         return {
             "company_name": "金库集团",
@@ -422,11 +454,7 @@ class OpenClawRealtime:
             "employees_count": len(agents),
             "employees_by_status": status_counts,
             "employees": employees,
-            "projects": {
-                "total": 3,
-                "active": 2,
-                "completed": 1
-            },
+            "projects": projects_data,
             "tasks": {
                 "total": len(self._tasks_cache),
                 "pending": len([t for t in self._tasks_cache.values() if t.status == "pending"]),
@@ -439,6 +467,40 @@ class OpenClawRealtime:
                 "balance": 1000
             },
             "last_update": self._last_update.isoformat() if self._last_update else ""
+        }
+    
+    def _get_projects_data(self) -> dict:
+        """从storage/projects获取真实项目数据"""
+        projects_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            "storage", 
+            "projects"
+        )
+        
+        total = 0
+        active = 0
+        completed = 0
+        
+        if os.path.exists(projects_path):
+            try:
+                for project_dir in os.listdir(projects_path):
+                    project_file = os.path.join(projects_path, project_dir, "info.json")
+                    if os.path.exists(project_file):
+                        with open(project_file, 'r', encoding='utf-8') as f:
+                            project_info = json.load(f)
+                            status = project_info.get("status", "")
+                            total += 1
+                            if status in ["active", "kickoff", "running"]:
+                                active += 1
+                            elif status == "completed":
+                                completed += 1
+            except Exception as e:
+                print(f"Error reading projects: {e}")
+        
+        return {
+            "total": total,
+            "active": active,
+            "completed": completed
         }
 
 
